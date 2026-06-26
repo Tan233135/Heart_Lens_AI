@@ -1,0 +1,38 @@
+{
+  "feature_columns": [
+    "male",
+    "age",
+    "education",
+    "currentSmoker",
+    "cigsPerDay",
+    "BPMeds",
+    "prevalentStroke",
+    "prevalentHyp",
+    "diabetes",
+    "totChol",
+    "sysBP",
+    "diaBP",
+    "BMI",
+    "heartRate",
+    "glucose"
+  ],
+  "target_column": "TenYearCHD",
+  "versions": {
+    "scikit_learn": "1.6.1",
+    "xgboost": "3.2.0"
+  },
+  "models": {
+    "logistic_regression": {
+      "file": "logistic_regression_pipeline.pkl",
+      "test_roc_auc": 0.7004668413278563,
+      "test_recall": 0.5968992248062015,
+      "test_precision": 0.25412541254125415
+    },
+    "xgboost": {
+      "file": "xgboost_pipeline.pkl",
+      "test_roc_auc": 0.6141604942264773,
+      "test_recall": 0.3023255813953488,
+      "test_precision": 0.23076923076923078
+    }
+  }
+}

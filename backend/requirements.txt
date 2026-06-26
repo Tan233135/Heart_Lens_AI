@@ -1,0 +1,23 @@
+# HeartLens backend — PINNED versions (see CLAUDE.md §4)
+# Version mismatches against the pickled pipelines can SILENTLY corrupt predictions.
+
+# --- ML / model pipeline (must match the versions the .pkl files were trained under) ---
+scikit-learn==1.6.1
+# TODO: confirm and pin the exact xgboost version the pipelines were pickled under.
+#       model_metadata.json records "xgboost": "3.2.0" — verify in the Colab notebook
+#       with `import xgboost; print(xgboost.__version__)` before pinning, then replace below.
+# xgboost==3.2.0
+joblib>=1.3
+pandas>=2.0
+
+# --- Web framework ---
+fastapi>=0.110
+uvicorn[standard]>=0.27
+
+# --- OCR (heavy: pulls in PyTorch; prefer CPU-only +cpu wheels in deployment, see §9) ---
+# easyocr>=1.7
+
+# --- Config / DB (add when wired up) ---
+python-dotenv>=1.0
+# psycopg[binary]>=3.1
+# sqlalchemy>=2.0
