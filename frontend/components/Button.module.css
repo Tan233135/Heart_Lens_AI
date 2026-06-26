@@ -1,0 +1,78 @@
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-3);
+  min-height: var(--tap-min);
+  padding: var(--sp-3) var(--sp-5);
+  border: 2px solid transparent;
+  border-radius: var(--radius);
+  font-family: inherit;
+  font-weight: 700;
+  line-height: 1.2;
+  cursor: pointer;
+  text-align: center;
+  transition:
+    background-color 0.15s ease,
+    transform 0.08s ease,
+    box-shadow 0.15s ease;
+}
+
+.btn:active {
+  transform: translateY(1px);
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Sizes */
+.md {
+  font-size: var(--fs-base);
+}
+.lg {
+  font-size: var(--fs-lg);
+  min-height: 64px;
+  padding-inline: var(--sp-6);
+}
+
+.fullWidth {
+  width: 100%;
+}
+
+/* Variants */
+.primary {
+  background: var(--c-primary);
+  color: var(--c-primary-contrast);
+  box-shadow: var(--shadow);
+}
+.primary:hover {
+  background: var(--c-primary-dark);
+}
+
+.secondary {
+  background: var(--c-surface);
+  color: var(--c-primary-dark);
+  border-color: var(--c-primary);
+}
+.secondary:hover {
+  background: var(--c-risk-low-bg);
+}
+
+.ghost {
+  background: transparent;
+  color: var(--c-text);
+  border-color: var(--c-border);
+}
+.ghost:hover {
+  background: var(--c-surface);
+}
+
+.icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5em;
+  height: 1.5em;
+}

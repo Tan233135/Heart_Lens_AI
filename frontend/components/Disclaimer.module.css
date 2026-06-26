@@ -1,0 +1,26 @@
+.disclaimer {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-3);
+  padding: var(--sp-4);
+  background: var(--c-risk-moderate-bg);
+  border: 1px solid color-mix(in srgb, var(--c-risk-moderate) 35%, transparent);
+  border-radius: var(--radius);
+  color: var(--c-text);
+  font-size: var(--fs-sm);
+}
+
+.icon {
+  flex: 0 0 auto;
+  color: var(--c-risk-moderate);
+  margin-top: 2px;
+}
+
+.line {
+  margin: 0;
+}
+
+.line + .line {
+  margin-top: var(--sp-2);
+  color: var(--c-text-muted);
+}

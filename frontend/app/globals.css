@@ -1,0 +1,189 @@
+/* ============================================================================
+   HeartLens design system — tokens + base styles.
+   Plain CSS custom properties (no CSS framework) to keep the bundle tiny for
+   low-end Android phones on slow 3G (CLAUDE.md §1). Animations are CSS-only here.
+   ============================================================================ */
+
+:root {
+  /* --- Palette ---------------------------------------------------------------
+     Calm, medical, high-contrast. Teal = trust/primary. Risk colors are chosen
+     to be distinguishable AND to differ in lightness (not hue alone) so they
+     remain readable for color-blind users and low-quality screens. */
+  --c-bg: #f4f7f8;
+  --c-surface: #ffffff;
+  --c-border: #d3dde0;
+
+  --c-text: #14252b; /* near-black, AAA on white */
+  --c-text-muted: #4f6670;
+
+  --c-primary: #0e7c86; /* teal */
+  --c-primary-dark: #0a5d65;
+  --c-primary-contrast: #ffffff;
+
+  /* Risk categories (low / moderate / high). Used by color-coded cards (§1). */
+  --c-risk-low: #1f8a4c;
+  --c-risk-low-bg: #e3f5ea;
+  --c-risk-moderate: #b8730a;
+  --c-risk-moderate-bg: #fbeed3;
+  --c-risk-high: #c0271f;
+  --c-risk-high-bg: #fbe2e0;
+
+  --c-focus: #0a5d65;
+
+  /* --- Typography ------------------------------------------------------------
+     System-font stack with Bengali fallbacks first — ZERO font downloads, which
+     is the lightest possible payload for low-end phones on 3G (CLAUDE.md §1).
+     Most Android devices ship a Bengali system font. If crisper/consistent Bangla
+     rendering is needed later, swap in a self-hosted face via next/font here.
+     Larger base size + generous line-height: many users read with difficulty. */
+  --font-sans: "Noto Sans Bengali", "Hind Siliguri", "SolaimanLipi", system-ui,
+    -apple-system, "Segoe UI", Roboto, sans-serif;
+
+  --fs-base: 18px;
+  --fs-sm: 0.875rem;
+  --fs-lg: 1.25rem;
+  --fs-xl: 1.6rem;
+  --fs-2xl: 2.2rem;
+  --lh: 1.6;
+
+  /* --- Spacing & shape ------------------------------------------------------- */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 24px;
+  --sp-6: 32px;
+  --sp-7: 48px;
+
+  --radius: 14px;
+  --radius-lg: 20px;
+
+  --shadow: 0 2px 8px rgba(20, 37, 43, 0.08);
+  --shadow-lg: 0 6px 20px rgba(20, 37, 43, 0.12);
+
+  /* Minimum tap target — large for shaky/older-device use (§1, WCAG 2.5.5). */
+  --tap-min: 56px;
+
+  --maxw: 480px; /* mobile-first single-column */
+}
+
+/* --- Reset / base --------------------------------------------------------- */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  font-size: var(--fs-base);
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  font-family: var(--font-sans);
+  background: var(--c-bg);
+  color: var(--c-text);
+  line-height: var(--lh);
+  min-height: 100dvh;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3,
+p {
+  margin: 0 0 var(--sp-3);
+}
+
+h1 {
+  font-size: var(--fs-2xl);
+  line-height: 1.2;
+}
+h2 {
+  font-size: var(--fs-xl);
+  line-height: 1.25;
+}
+
+a {
+  color: var(--c-primary-dark);
+}
+
+/* Visible focus for keyboard users — never remove without a replacement. */
+:focus-visible {
+  outline: 3px solid var(--c-focus);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/* --- Layout helpers ------------------------------------------------------- */
+.app-shell {
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+}
+
+.container {
+  width: 100%;
+  max-width: var(--maxw);
+  margin: 0 auto;
+  padding: 0 var(--sp-4);
+}
+
+.main {
+  flex: 1 1 auto;
+  padding-block: var(--sp-6);
+}
+
+/* Card surface used across the app (risk cards, panels). */
+.card {
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow);
+  padding: var(--sp-5);
+}
+
+/* Screen-reader-only utility. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* --- Motion: gentle, and disabled when the user prefers reduced motion. ---- */
+@keyframes hl-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.fade-in {
+  animation: hl-fade-in 0.35s ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}

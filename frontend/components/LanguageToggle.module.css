@@ -1,0 +1,25 @@
+.toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  min-height: 44px;
+  padding: var(--sp-2) var(--sp-3);
+  background: var(--c-surface);
+  color: var(--c-primary-dark);
+  border: 2px solid var(--c-border);
+  border-radius: 999px;
+  font-family: inherit;
+  font-size: var(--fs-base);
+  font-weight: 700;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.toggle:hover {
+  border-color: var(--c-primary);
+  background: var(--c-risk-low-bg);
+}
+
+.label {
+  line-height: 1;
+}

@@ -1,0 +1,145 @@
+.riskCard {
+  margin-top: var(--sp-5);
+  padding: var(--sp-6) var(--sp-5);
+  border-radius: var(--radius-lg);
+  border: 3px solid;
+  text-align: center;
+  box-shadow: var(--shadow-lg);
+}
+
+.riskIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 88px;
+  height: 88px;
+  border-radius: 50%;
+  margin-bottom: var(--sp-3);
+}
+
+.riskLabel {
+  font-size: var(--fs-2xl);
+  margin-bottom: var(--sp-2);
+}
+
+.advice {
+  font-size: var(--fs-lg);
+  margin-bottom: var(--sp-4);
+}
+
+/* Category color treatments — border + tinted background + matching icon/text. */
+.low {
+  border-color: var(--c-risk-low);
+  background: var(--c-risk-low-bg);
+}
+.low .riskIcon {
+  background: var(--c-risk-low);
+  color: #fff;
+}
+.low .riskLabel {
+  color: var(--c-risk-low);
+}
+
+.moderate {
+  border-color: var(--c-risk-moderate);
+  background: var(--c-risk-moderate-bg);
+}
+.moderate .riskIcon {
+  background: var(--c-risk-moderate);
+  color: #fff;
+}
+.moderate .riskLabel {
+  color: var(--c-risk-moderate);
+}
+
+.high {
+  border-color: var(--c-risk-high);
+  background: var(--c-risk-high-bg);
+}
+.high .riskIcon {
+  background: var(--c-risk-high);
+  color: #fff;
+}
+.high .riskLabel {
+  color: var(--c-risk-high);
+}
+
+/* Three-band indicator — reinforces "this is a band", not a precise point (§6). */
+.bands {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--sp-2);
+  margin-top: var(--sp-3);
+}
+
+.band {
+  padding: var(--sp-2) var(--sp-1);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.65);
+  border: 2px solid transparent;
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  color: var(--c-text-muted);
+  opacity: 0.7;
+}
+
+/* The active band gets its category color and full emphasis. */
+.bandActive {
+  opacity: 1;
+  color: #fff;
+}
+.band_low.bandActive {
+  background: var(--c-risk-low);
+  border-color: var(--c-risk-low);
+}
+.band_moderate.bandActive {
+  background: var(--c-risk-moderate);
+  border-color: var(--c-risk-moderate);
+}
+.band_high.bandActive {
+  background: var(--c-risk-high);
+  border-color: var(--c-risk-high);
+}
+
+.audioWrap {
+  margin-top: var(--sp-5);
+  display: flex;
+  justify-content: center;
+}
+
+.gridSection {
+  margin-top: var(--sp-5);
+  text-align: center;
+}
+
+.gridHeading {
+  font-size: var(--fs-lg);
+  margin-bottom: var(--sp-4);
+}
+
+.gridCaption {
+  margin: var(--sp-4) 0 0;
+  font-size: var(--fs-sm);
+  color: var(--c-text-muted);
+  line-height: 1.5;
+  text-align: left;
+}
+
+.disclaimerWrap {
+  margin-top: var(--sp-5);
+}
+
+.actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  margin-top: var(--sp-5);
+}
+
+.empty {
+  margin-top: var(--sp-6);
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+}

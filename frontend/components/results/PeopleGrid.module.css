@@ -1,0 +1,56 @@
+.grid {
+  display: grid;
+  grid-template-columns: repeat(10, 1fr);
+  gap: 2.5px;
+  /* Risk color is set per-category below and consumed by .filled. */
+  --fill: var(--c-text-muted);
+}
+
+.cell {
+  display: inline-flex;
+  aspect-ratio: 1;
+}
+
+.person {
+  width: 100%;
+  height: 100%;
+  fill: #c7d2d6; /* neutral "person not affected" */
+  transform: scale(0.8);
+  opacity: 0;
+  animation: person-pop 0.32s ease-out both;
+  animation-delay: calc(var(--i, 0) * 9ms);
+}
+
+.filled .person {
+  fill: var(--fill);
+}
+
+@keyframes person-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.4);
+  }
+  to {
+    opacity: 1;
+    transform: scale(0.9);
+  }
+}
+
+/* Per-category highlight color, mirroring the risk cards. */
+.low {
+  --fill: var(--c-risk-low);
+}
+.moderate {
+  --fill: var(--c-risk-moderate);
+}
+.high {
+  --fill: var(--c-risk-high);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .person {
+    opacity: 1;
+    transform: scale(0.9);
+    animation: none;
+  }
+}
