@@ -13,44 +13,12 @@
   margin-bottom: var(--sp-6);
 }
 
-.uploadBtn {
-  margin-top: var(--sp-3);
-}
-
-.soon {
-  margin-top: var(--sp-3);
-  font-size: var(--fs-sm);
-  color: var(--c-text-muted);
-}
-
-.preview {
-  margin-top: var(--sp-5);
-}
-
-.previewTitle {
-  font-size: var(--fs-lg);
-  margin-bottom: var(--sp-4);
-}
-
-.swatches {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: var(--sp-3);
-  margin-bottom: var(--sp-4);
-}
-
-.swatch {
+/* Even vertical rhythm between the action buttons (one gap, no per-button margins).
+   The full-width Buttons stretch via their own fullWidth prop; the welcome pill keeps
+   its natural width and stays centered. */
+.actions {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: center;
-  min-height: 64px;
-  border: 2px solid;
-  border-radius: var(--radius);
-  font-weight: 700;
-}
-
-.btnRow {
-  display: flex;
-  flex-wrap: wrap;
   gap: var(--sp-3);
 }

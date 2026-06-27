@@ -3,19 +3,26 @@
 // Shared app header: brand mark + name on the left, language toggle on the right.
 // Part of the persistent shell wrapped around every page.
 
+import Link from "next/link";
 import { useI18n } from "@/lib/i18n";
 import LanguageToggle from "./LanguageToggle";
 import styles from "./Header.module.css";
 
 export default function Header() {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   return (
     <header className={styles.header}>
       <div className={`container ${styles.inner}`}>
-        <div className={styles.brand}>
+        {/* Brand links home — the logo is the universal "back to start" affordance,
+            and a tap target that needs no reading (CLAUDE.md §1). */}
+        <Link
+          href="/"
+          className={styles.brand}
+          aria-label={lang === "bn" ? "হোম পেজে যান" : "Go to home page"}
+        >
           <HeartMark />
           <span className={styles.name}>{t("appName")}</span>
-        </div>
+        </Link>
         <LanguageToggle />
       </div>
     </header>

@@ -21,8 +21,12 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   // <html lang> defaults to Bangla (the primary audience) and is kept in sync by I18nProvider.
+  // suppressHydrationWarning: browser extensions (QuillBot, grammar/translate add-ons, etc.)
+  // inject attributes like data-qb-installed / webcrx onto <html> before React hydrates. Those
+  // attributes only exist on the client, so React reports a hydration mismatch on this element.
+  // This flag silences that one-level warning; it does NOT mask real mismatches in the tree.
   return (
-    <html lang="bn">
+    <html lang="bn" suppressHydrationWarning>
       <body>
         <I18nProvider>
           <div className="app-shell">
