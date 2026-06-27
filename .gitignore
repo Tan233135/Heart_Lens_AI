@@ -32,3 +32,6 @@ env/
 Thumbs.db
 .vscode/
 .idea/
+
+# --- Project context (local only) ---
+CLAUDE.md
