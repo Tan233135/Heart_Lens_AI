@@ -13,8 +13,22 @@ import type {
   PredictResponse,
 } from "./types";
 
+// NEXT_PUBLIC_* is inlined at BUILD time, not read at runtime. If it wasn't set when the
+// frontend was built, `RAW_BASE` is undefined — and we must NOT silently fall back to
+// localhost in a deployed build, because that points every user's browser at its own machine
+// and makes every API call fail with a confusing generic error (the #1 Railway deploy bug,
+// DEPLOY.md §6). Fall back to localhost ONLY in development; in production surface the
+// misconfiguration loudly so it's diagnosable instead of looking like a backend outage.
+const RAW_BASE = process.env.NEXT_PUBLIC_API_URL;
+if (!RAW_BASE && process.env.NODE_ENV === "production" && typeof window !== "undefined") {
+  // eslint-disable-next-line no-console
+  console.error(
+    "[HeartLens] NEXT_PUBLIC_API_URL was not set at build time — every API call will fail. " +
+      "Set it on the frontend service and REDEPLOY/REBUILD the frontend (DEPLOY.md §1).",
+  );
+}
 // Trailing slash trimmed so we can safely template `${BASE}/path`.
-const BASE = (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000").replace(/\/+$/, "");
+const BASE = (RAW_BASE ?? "http://localhost:8000").replace(/\/+$/, "");
 
 export class ApiError extends Error {
   status: number;

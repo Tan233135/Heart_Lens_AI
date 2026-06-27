@@ -79,11 +79,16 @@ app = FastAPI(
 )
 
 # CORS — frontend and backend are on different origins (CLAUDE.md §7, §10). Read the allowed
-# origin from FRONTEND_URL; fall back to localhost:3000 for local dev.
-FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
+# origin(s) from FRONTEND_URL; fall back to localhost:3000 for local dev. FRONTEND_URL may be a
+# comma-separated list (e.g. the Railway domain + a custom domain). We strip any trailing slash
+# because the browser's Origin header NEVER carries one — a trailing slash here would silently
+# fail to match and CORS-block every request (DEPLOY.md §6).
+_raw_origins = os.getenv("FRONTEND_URL", "http://localhost:3000")
+ALLOWED_ORIGINS = [o.strip().rstrip("/") for o in _raw_origins.split(",") if o.strip()]
+logger.info("CORS allowed origins: %s", ALLOWED_ORIGINS)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[FRONTEND_URL],
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -124,17 +129,24 @@ def _verify_ocr_deps_on_startup() -> None:
 
 @app.on_event("startup")
 def _warm_up_ocr_on_startup() -> None:
-    """Initialize the OCR engine at startup and LOG success/failure (CLAUDE.md §8).
+    """Optionally initialize the OCR engine at startup and LOG success/failure (CLAUDE.md §8).
 
-    Default is eager so an engine-init problem (e.g. EasyOCR/PyTorch not installed, or a model
-    download failure — CLAUDE.md §9) shows up in the STARTUP log instead of silently waiting to
-    explode on the first upload. Set OCR_EAGER_INIT=0 to keep the original lazy behaviour.
+    Default is now LAZY (OCR_EAGER_INIT=0). Building the en+bn EasyOCR Reader at startup pushes
+    RSS to ~980 MB — right at Railway's ~1 GB trial ceiling (DEPLOY.md §5) — which can OOM the
+    backend at boot and send it into a crash-loop. When that happens EVERY endpoint dies, including
+    the safe manual/guided prediction path that needs no OCR at all (CLAUDE.md §2). Keeping the
+    Reader lazy lets the backend boot light (~546 MB), so the manual path always works; the memory
+    spike only happens when someone actually uploads an image. Set OCR_EAGER_INIT=1 to eagerly warm
+    the Reader at startup (only safe with >1 GB headroom).
     """
-    if os.getenv("OCR_EAGER_INIT", "1") == "1":
+    if os.getenv("OCR_EAGER_INIT", "0") == "1":
         logger.info("Startup: warming up OCR engine (OCR_EAGER_INIT=1)…")
         warm_up_ocr()
     else:
-        logger.info("Startup: OCR_EAGER_INIT=0 — OCR engine will initialize lazily on first image.")
+        logger.info(
+            "Startup: OCR_EAGER_INIT=0 (default) — OCR engine initializes lazily on first image; "
+            "backend boots light so the manual/guided prediction path stays available."
+        )
 
 
 @app.get("/health")

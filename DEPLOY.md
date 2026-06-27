@@ -40,7 +40,7 @@ These were costly to fix locally and are now enforced in code so a fresh build c
 | `DEFAULT_MODEL` | **backend** | `logistic_regression` |
 | `HIGH_RISK_THRESHOLD` | **backend** | `0.30` (deliberate, recall-favoring; see CLAUDE.md §2/§6) |
 | `MODERATE_RISK_THRESHOLD` | **backend** | `0.15` (optional; backend has a default) |
-| `OCR_EAGER_INIT` | **backend** | `1` to warm the Reader at startup, `0` to lazy-load (see §5 memory) |
+| `OCR_EAGER_INIT` | **backend** | `0` (default, recommended on the trial tier — lazy-load the Reader so a startup OOM can't take down the safe manual path). Set `1` only with >1 GB headroom. See §5. |
 | `NEXT_PUBLIC_API_URL` | **frontend** | the backend's public Railway URL, e.g. `https://heartlens-backend.up.railway.app` |
 | `NEXT_PUBLIC_HIGH_RISK_THRESHOLD` | **frontend** | `0.30` (keep in sync with backend) |
 | `NEXT_PUBLIC_MODERATE_RISK_THRESHOLD` | **frontend** | `0.15` |
@@ -56,7 +56,9 @@ These were costly to fix locally and are now enforced in code so a fresh build c
 1. Project → **New → GitHub Repo** → select this repo. Set the service **Root Directory = `backend`**.
 2. Railway detects `backend/Dockerfile` and builds from it (pins Python 3.12 + CPU torch + bakes OCR weights).
 3. Service → **Variables**: add `DATABASE_URL=${{Postgres.DATABASE_URL}}`, `FRONTEND_URL` (fill after step C),
-   `DEFAULT_MODEL=logistic_regression`, `HIGH_RISK_THRESHOLD=0.30`, `OCR_EAGER_INIT=1`.
+   `DEFAULT_MODEL=logistic_regression`, `HIGH_RISK_THRESHOLD=0.30`. Leave `OCR_EAGER_INIT` unset (defaults to
+   `0`/lazy on the trial tier so a Reader OOM at boot can't crash-loop the backend and take down the safe
+   manual path); set `OCR_EAGER_INIT=1` only after upgrading past the ~1 GB trial ceiling.
 4. **Settings → Networking → Generate Domain** to get the public backend URL. Note it.
 5. The container `CMD` runs `alembic upgrade head && python seed_doctors.py && uvicorn …` — migrations
    and the 18-row doctor seed apply automatically on first boot (both idempotent).

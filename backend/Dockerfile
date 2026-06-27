@@ -32,6 +32,8 @@ RUN python -c "import easyocr; easyocr.Reader(['en', 'bn'], gpu=False)"
 COPY . .
 
 # Railway injects $PORT — never hardcode it. On boot: apply migrations (idempotent), seed the
-# doctor directory (idempotent — skips if rows exist), then serve. OCR_EAGER_INIT defaults to 1,
-# so warm_up_ocr() initializes the singleton Reader once at startup.
+# doctor directory (idempotent — skips if rows exist), then serve. OCR_EAGER_INIT defaults to 0
+# (lazy): the backend boots light (~546 MB) so the safe manual/guided path is never taken down by
+# an OCR-Reader OOM on the ~1 GB trial tier; the Reader builds on the first image upload instead.
+# Set OCR_EAGER_INIT=1 only when the service has >1 GB headroom (DEPLOY.md §5).
 CMD ["sh", "-c", "alembic upgrade head && python seed_doctors.py && uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000}"]
