@@ -138,6 +138,11 @@ a {
 .main {
   flex: 1 1 auto;
   padding-block: var(--sp-6);
+  /* Column flex so a page can opt into filling/centering the leftover height
+     (e.g. the home page). Other pages keep a single container child that simply
+     flows as before. */
+  display: flex;
+  flex-direction: column;
 }
 
 /* Card surface used across the app (risk cards, panels). */

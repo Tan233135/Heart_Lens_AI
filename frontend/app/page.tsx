@@ -15,7 +15,7 @@ export default function HomePage() {
   const router = useRouter();
 
   return (
-    <div className="container fade-in">
+    <div className={`container fade-in ${styles.home}`}>
       <section className={styles.hero}>
         <h1 className={styles.title}>{t("appName")}</h1>
         <p className={styles.tagline}>{t("tagline")}</p>

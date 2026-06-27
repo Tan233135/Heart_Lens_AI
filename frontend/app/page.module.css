@@ -1,3 +1,12 @@
+/* Fill the leftover viewport height (.main is a column flex) and center the hero
+   vertically, so the page uses the whole screen instead of clustering at the top. */
+.home {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
 .hero {
   text-align: center;
   padding-block: var(--sp-6) var(--sp-5);
