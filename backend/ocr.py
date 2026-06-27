@@ -17,8 +17,11 @@ what it actually found; it never invents a value.
 
 from __future__ import annotations
 
+import io
 import logging
+import os
 import re
+import time
 from dataclasses import dataclass, field
 from typing import Optional
 
@@ -36,6 +39,12 @@ OCR_LANGUAGES = ["en", "bn"]
 # Tokens below this OCR confidence are NOT trusted as clinical values (CLAUDE.md §8: "on
 # low confidence, do not fabricate"). They are still kept in raw_text for audit/debugging.
 OCR_MIN_CONFIDENCE = 0.30
+
+# Server-side downscale ceiling (long edge, px). Phone cameras send 12MP+ photos; running
+# EasyOCR on the full image on CPU is the dominant cost (CLAUDE.md §9 — OCR is the perf/memory
+# blocker). Downscaling to ~1600px cuts detection time roughly with the pixel-count ratio while
+# leaving lab digits comfortably legible. Tunable via env without a code change.
+OCR_MAX_IMAGE_EDGE = int(os.getenv("OCR_MAX_IMAGE_EDGE", "1600"))
 
 # --- EasyOCR reader: constructed ONCE, lazily, then reused (CLAUDE.md §8, §9) -------------
 # Lazy so that (a) server startup and the manual /predict path don't pay the heavy
@@ -267,16 +276,76 @@ def extract_features_from_text(lines: list[str]) -> dict[str, float]:
 # -----------------------------------------------------------------------------------------
 # Image -> ExtractionResult
 # -----------------------------------------------------------------------------------------
+def _downscale_for_ocr(image_bytes: bytes, max_edge: int = OCR_MAX_IMAGE_EDGE) -> bytes:
+    """Downscale an oversized photo before OCR; honor EXIF rotation. Never fabricates pixels.
+
+    Phone uploads are routinely 3000–4000px on the long edge; EasyOCR detection cost scales
+    with pixel count, so a full-resolution photo is the main reason a request is slow
+    (CLAUDE.md §9). We shrink the LONG edge down to `max_edge` (keeping aspect ratio) and apply
+    the EXIF orientation so rotated phone photos read correctly — which also HELPS accuracy.
+
+    This only ever shrinks. If the image is already within bounds it is returned untouched. On
+    any decode error we log and fall back to the original bytes, so a weird format degrades to
+    "EasyOCR tries the raw image" rather than crashing the request.
+    """
+    try:
+        from PIL import Image, ImageOps
+    except Exception:
+        logger.warning("OCR resize: Pillow not available — skipping downscale, using raw image.")
+        return image_bytes
+
+    try:
+        img = Image.open(io.BytesIO(image_bytes))
+        img = ImageOps.exif_transpose(img)  # bake in phone rotation; drop EXIF orientation
+        w, h = img.size
+        long_edge = max(w, h)
+        if long_edge <= max_edge:
+            logger.info("OCR resize: image %dx%d within %dpx ceiling — no downscale.", w, h, max_edge)
+            return image_bytes
+        scale = max_edge / float(long_edge)
+        new_size = (max(1, round(w * scale)), max(1, round(h * scale)))
+        img = img.convert("RGB").resize(new_size, Image.LANCZOS)
+        buf = io.BytesIO()
+        img.save(buf, format="JPEG", quality=90)
+        out = buf.getvalue()
+        logger.info(
+            "OCR resize: downscaled %dx%d -> %dx%d (%.2fx, %d -> %d bytes) before OCR.",
+            w, h, new_size[0], new_size[1], scale, len(image_bytes), len(out),
+        )
+        return out
+    except Exception:
+        logger.warning("OCR resize: could not decode/resize image — using raw bytes.", exc_info=True)
+        return image_bytes
+
+
 def run_ocr_lines(image_bytes: bytes) -> tuple[list[str], bool]:
     """Run EasyOCR ONCE on the image. Returns (trusted_text_lines, any_text_detected).
 
     `trusted_text_lines` keeps only tokens at/above OCR_MIN_CONFIDENCE for value parsing.
     `any_text_detected` reflects whether OCR found ANY text box at all, used to distinguish
     a blank image from a low-confidence-but-non-empty one.
+
+    Emits separate timings (CLAUDE.md §8 — auditable pipeline) for: getting the Reader (should
+    be ~0ms after the first request if the singleton is working), downscaling the image, and the
+    EasyOCR detection+recognition pass itself (the dominant cost).
     """
+    t_reader_start = time.perf_counter()
     reader = get_reader()
+    reader_ms = (time.perf_counter() - t_reader_start) * 1000.0
+
+    t_resize_start = time.perf_counter()
+    prepared = _downscale_for_ocr(image_bytes)
+    resize_ms = (time.perf_counter() - t_resize_start) * 1000.0
+
     # detail=1 -> (bbox, text, confidence). Run exactly once per request (CLAUDE.md §7).
-    results = reader.readtext(image_bytes, detail=1)
+    t_ocr_start = time.perf_counter()
+    results = reader.readtext(prepared, detail=1)
+    ocr_ms = (time.perf_counter() - t_ocr_start) * 1000.0
+    logger.info(
+        "OCR timing: get_reader=%.1fms (≈0 means singleton OK), resize=%.1fms, "
+        "easyocr_readtext=%.1fms (the dominant cost).",
+        reader_ms, resize_ms, ocr_ms,
+    )
     any_text = len(results) > 0
 
     # STAGE 2 of the pipeline: text detection. Log the RAW text EasyOCR returned, BEFORE any
@@ -308,8 +377,17 @@ _ALL_FEATURES = list(FEATURE_BOUNDS.keys())
 
 def extract_from_image(image_bytes: bytes) -> ExtractionResult:
     """Full OCR -> §5 extraction for one report image. Never fabricates values."""
+    t_total_start = time.perf_counter()
     lines, any_text = run_ocr_lines(image_bytes)
+
+    t_parse_start = time.perf_counter()
     values = extract_features_from_text(lines)
+    parse_ms = (time.perf_counter() - t_parse_start) * 1000.0
+    total_ms = (time.perf_counter() - t_total_start) * 1000.0
+    logger.info(
+        "OCR timing: parse_text_to_features=%.1fms; total extract_from_image=%.1fms.",
+        parse_ms, total_ms,
+    )
 
     # STAGE 3 of the pipeline: field parsing. Log which of the 15 fields were parsed from the
     # raw text and which were not — so a parsing-rule mismatch is visible, not silent (§8).

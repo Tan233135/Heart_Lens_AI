@@ -13,11 +13,19 @@ fastapi>=0.110
 uvicorn[standard]>=0.27
 python-multipart>=0.0.9          # required by FastAPI for UploadFile (image upload)
 
-# --- OCR (heavy: pulls in PyTorch; prefer CPU-only +cpu wheels in deployment, see §9) ---
-# EasyOCR is initialized for BOTH 'en' and 'bn' and built ONCE, lazily (see ocr.py, §8).
-# For Railway, install CPU-only torch to cut image size/memory (§9), e.g.:
-#   pip install torch --index-url https://download.pytorch.org/whl/cpu
+# --- OCR (heavy: pulls in PyTorch) — CPU-only build is REQUIRED (CLAUDE.md §9) ----------
+# Railway has no GPU. The default `torch` wheel on PyPI is the CUDA build: ~2GB, and it spends
+# startup probing for a GPU that isn't there. We pin the CPU-only (`+cpu`) wheels from PyTorch's
+# CPU index, which cuts image size/memory dramatically and removes the GPU probe. EasyOCR is
+# initialized for BOTH 'en' and 'bn' and built ONCE, lazily (see ocr.py, §8).
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch==2.5.1+cpu
+torchvision==0.20.1+cpu
 easyocr>=1.7
+
+# Server-side image downscaling before OCR (ocr.py: _downscale_for_ocr). Pillow ships with
+# EasyOCR already, but pin it explicitly since we now depend on it directly.
+pillow>=10.0
 
 # --- Config ---
 python-dotenv>=1.0
