@@ -89,6 +89,10 @@ export interface PredictFromImageResponse {
   message: string;
   message_bn: string;
   prediction: PredictResponse | null;
+  // Confidence tier for the prediction (CLAUDE.md §6), from the same logic the wizard uses.
+  // null when there is no prediction (fall_back_to_manual). Lets the results page render an
+  // image-sourced result identically to a wizard-sourced one.
+  confidence: Confidence | null;
   raw_text_sample: string[];
 }
 

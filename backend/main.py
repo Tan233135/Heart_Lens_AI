@@ -332,6 +332,10 @@ async def predict_from_image(
     features = {c: extracted.get(c) for c in FEATURE_COLUMNS}  # missing -> None -> imputer
     probability = predict_risk(features, model=chosen)
     risk_category = categorize_risk(probability)
+    # Same honest confidence tier the guided wizard reports (CLAUDE.md §6) — based on how many
+    # CLINICAL fields were imputed rather than read. The image-success path now routes straight
+    # to results, so it must carry this so the results page can frame the number identically.
+    confidence = confidence_from_missing(missing)
     # Persist (best-effort). We store the feature dict actually sent to the model — imputed
     # fields are recorded as None so the row honestly reflects what was read vs. estimated.
     assessment_id = save_assessment(
@@ -363,5 +367,6 @@ async def predict_from_image(
                  "diagnosis — consult a doctor."),
         message_bn=_OK_MSG_BN,
         prediction=prediction,
+        confidence=confidence,
         raw_text_sample=raw_sample,
     )

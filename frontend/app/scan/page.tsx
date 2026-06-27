@@ -13,8 +13,22 @@ import Button from "@/components/Button";
 import Icon from "@/components/Icon";
 import { ApiError, predictFromImage } from "@/lib/api";
 import { useI18n } from "@/lib/i18n";
-import { saveOcr } from "@/lib/ocrStore";
+import { clearOcr, saveOcr } from "@/lib/ocrStore";
+import { saveResult } from "@/lib/resultStore";
+import type { PredictFromImageResponse } from "@/lib/types";
 import styles from "./page.module.css";
+
+// Did OCR read enough real, sufficiently-complete data to trust the prediction WITHOUT a
+// manual confirmation step? Mirrors the backend safety gate: ocr_success is set true only when
+// n_extracted >= min_required_fields (MIN_OCR_FIELDS) AND a prediction was produced. We re-check
+// all three on the client so this stays correct even if the backend contract shifts.
+function ocrResultIsTrustworthy(r: PredictFromImageResponse): boolean {
+  return (
+    r.ocr_success &&
+    r.prediction != null &&
+    r.n_extracted >= r.min_required_fields
+  );
+}
 
 export default function ScanPage() {
   const { lang } = useI18n();
@@ -51,8 +65,30 @@ export default function ScanPage() {
     setLoading(true);
     try {
       const res = await predictFromImage(file);
-      // Hand the WHOLE response to the form. The form shows the right banner based on
-      // res.fall_back_to_manual and pre-fills res.extracted_values. No result is shown here.
+
+      if (ocrResultIsTrustworthy(res)) {
+        // SUCCESS PATH (decision: skip the §2 confirm step for the photo flow). OCR read enough
+        // complete data, so we show the result the backend ALREADY computed — we do NOT recompute
+        // or discard res.prediction. Build the same StoredResult the wizard produces so the
+        // results page renders identically (same component, same confidence framing).
+        const features: Record<string, number | null> = { ...res.extracted_values };
+        for (const k of res.missing_fields) features[k] = null; // imputed by the model pipeline
+        clearOcr(); // drop any stale scan payload so /check isn't pre-seeded by this success
+        saveResult({
+          features,
+          response: res.prediction!, // non-null by ocrResultIsTrustworthy
+          source: "ocr",
+          confidence: res.confidence ?? "full",
+          unknownFields: res.missing_fields,
+          rough: res.confidence === "rough",
+        });
+        router.push("/results");
+        return;
+      }
+
+      // FALLBACK PATH: OCR failed or read too few values. Hand the WHOLE response to the wizard,
+      // which shows the right banner and PRE-FILLS res.extracted_values so the user only fills the
+      // gaps. The §2 safety gate is unchanged — we never show a risk score built on this.
       saveOcr(res);
       router.push("/check");
     } catch (e) {

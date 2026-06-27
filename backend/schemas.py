@@ -249,4 +249,13 @@ class PredictFromImageResponse(BaseModel):
     message: str = Field(..., description="Plain-language status (English)")
     message_bn: str = Field(..., description="Plain-language status (Bangla) — audience requirement, CLAUDE.md §2")
     prediction: Optional[PredictResponse] = Field(default=None, description="None when ocr_success is False — there is no score to show")
+    confidence: Optional[Literal["full", "partial", "rough"]] = Field(
+        default=None,
+        description=(
+            "How much real clinical data backs the prediction (CLAUDE.md §6), via the SAME "
+            "confidence_from_missing() the guided wizard uses. None when there is no prediction "
+            "(fall_back_to_manual). Lets the results page render an image result identically to "
+            "a wizard result."
+        ),
+    )
     raw_text_sample: list[str] = Field(default_factory=list, description="Sample of OCR-read text, for audit/debugging")
