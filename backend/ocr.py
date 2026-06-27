@@ -17,11 +17,17 @@ what it actually found; it never invents a value.
 
 from __future__ import annotations
 
+import logging
 import re
 from dataclasses import dataclass, field
 from typing import Optional
 
 from schemas import FEATURE_BOUNDS
+
+# Logger for the OCR pipeline. Handlers/levels are configured centrally in main.py so these
+# INFO/WARNING/ERROR lines actually reach the server log (CLAUDE.md §8 — the pipeline must be
+# auditable: we log the raw text detected and which fields parsed, never silently swallow).
+logger = logging.getLogger("heartlens.ocr")
 
 # EasyOCR languages — BOTH English and Bangla (CLAUDE.md §8). Reports here may be in either
 # or both scripts; a prior version was English-only despite Bangla logic existing.
@@ -39,14 +45,64 @@ _READER = None
 
 
 def get_reader():
-    """Return the process-wide EasyOCR reader, building it once on first use."""
+    """Return the process-wide EasyOCR reader, building it once on first use.
+
+    STAGE 1 of the pipeline: engine init. Both sub-steps are logged distinctly so a failure
+    here is unmistakable in the server log and we can tell WHICH part broke:
+      - `import easyocr` failing => the OCR stack isn't installed/importable (CLAUDE.md §9).
+      - `easyocr.Reader(...)` failing => model download/timeout/OOM at construction (§9).
+    On failure we log the REAL exception and re-raise (we do not swallow it).
+    """
     global _READER
     if _READER is None:
-        import easyocr  # imported lazily — pulls in PyTorch (heavy; see CLAUDE.md §9)
+        logger.info("OCR engine init: importing easyocr (lazy; pulls in PyTorch)…")
+        try:
+            import easyocr  # imported lazily — pulls in PyTorch (heavy; see CLAUDE.md §9)
+        except Exception:
+            logger.exception(
+                "OCR engine init FAILED at `import easyocr`: the OCR stack is not "
+                "installed/importable in this environment (CLAUDE.md §9 flags this as the "
+                "likely deployment blocker). OCR is UNAVAILABLE."
+            )
+            raise
 
-        # gpu=False -> CPU-only path (Railway has no GPU; keeps memory/size down, §9).
-        _READER = easyocr.Reader(OCR_LANGUAGES, gpu=False)
+        logger.info(
+            "OCR engine init: constructing easyocr.Reader(langs=%s, gpu=False) — the FIRST "
+            "run downloads the detection + recognition models (this can be slow / can OOM)…",
+            OCR_LANGUAGES,
+        )
+        try:
+            # gpu=False -> CPU-only path (Railway has no GPU; keeps memory/size down, §9).
+            _READER = easyocr.Reader(OCR_LANGUAGES, gpu=False)
+        except Exception:
+            logger.exception(
+                "OCR engine init FAILED while constructing easyocr.Reader(langs=%s): likely a "
+                "model-download failure, network timeout, or out-of-memory (CLAUDE.md §9).",
+                OCR_LANGUAGES,
+            )
+            raise
+        logger.info("OCR engine init: easyocr.Reader is READY (langs=%s).", OCR_LANGUAGES)
     return _READER
+
+
+def warm_up_ocr() -> bool:
+    """Eagerly initialize the OCR engine at startup and LOG the outcome.
+
+    Unlike get_reader(), this never crashes the app: it catches any init failure (already
+    logged in full by get_reader) and returns False, so the manual /predict path keeps working
+    while making the engine-init problem visible in the STARTUP log rather than only on the
+    first upload. Returns True iff the engine is ready.
+    """
+    try:
+        get_reader()
+        logger.info("OCR warm-up: engine initialized successfully at startup.")
+        return True
+    except Exception:
+        logger.error(
+            "OCR warm-up: engine is UNAVAILABLE — /predict-from-image will fail until this is "
+            "fixed. The real exception/traceback is logged just above."
+        )
+        return False
 
 
 # -----------------------------------------------------------------------------------------
@@ -198,7 +254,13 @@ def extract_features_from_text(lines: list[str]) -> dict[str, float]:
         lo, hi = FEATURE_BOUNDS[name]
         if lo <= value <= hi:
             valid[name] = value
-        # else: silently drop — it's an implausible read, not a real value.
+        else:
+            # An implausible read (e.g. a misread cholesterol of 9000). Don't feed garbage to
+            # the model — but LOG the drop so it's not an invisible reason for a missing field.
+            logger.info(
+                "OCR field parsing: DROPPED %s=%s — outside valid range [%s, %s] (likely misread).",
+                name, value, lo, hi,
+            )
     return valid
 
 
@@ -216,12 +278,47 @@ def run_ocr_lines(image_bytes: bytes) -> tuple[list[str], bool]:
     # detail=1 -> (bbox, text, confidence). Run exactly once per request (CLAUDE.md §7).
     results = reader.readtext(image_bytes, detail=1)
     any_text = len(results) > 0
+
+    # STAGE 2 of the pipeline: text detection. Log the RAW text EasyOCR returned, BEFORE any
+    # field parsing, with per-token confidence (CLAUDE.md §8). This is what distinguishes
+    # "OCR read nothing" from "OCR read text but parsing found no fields".
+    if not any_text:
+        logger.warning(
+            "OCR text detection: NO text detected in the image (blank, illegible, rotated, or "
+            "an unsupported format)."
+        )
+    else:
+        logger.info("OCR text detection: %d text box(es) detected. Raw text (confidence | text):", len(results))
+        for (_box, text, conf) in results:
+            logger.info("    %.2f | %r", conf, text)
+
     trusted = [text for (_box, text, conf) in results if conf >= OCR_MIN_CONFIDENCE]
+    dropped = len(results) - len(trusted)
+    if dropped:
+        logger.info(
+            "OCR text detection: %d/%d token(s) below confidence %.2f were dropped before parsing.",
+            dropped, len(results), OCR_MIN_CONFIDENCE,
+        )
     return trusted, any_text
+
+
+# The 15 §5 features, used only to log parsed-vs-missing clearly (FEATURE_BOUNDS keys are them).
+_ALL_FEATURES = list(FEATURE_BOUNDS.keys())
 
 
 def extract_from_image(image_bytes: bytes) -> ExtractionResult:
     """Full OCR -> §5 extraction for one report image. Never fabricates values."""
     lines, any_text = run_ocr_lines(image_bytes)
     values = extract_features_from_text(lines)
+
+    # STAGE 3 of the pipeline: field parsing. Log which of the 15 fields were parsed from the
+    # raw text and which were not — so a parsing-rule mismatch is visible, not silent (§8).
+    parsed_keys = list(values.keys())
+    not_found = [f for f in _ALL_FEATURES if f not in values]
+    logger.info(
+        "OCR field parsing: %d/15 field(s) parsed from raw text: %s",
+        len(parsed_keys), values if values else "{}",
+    )
+    logger.info("OCR field parsing: %d/15 field(s) NOT found: %s", len(not_found), not_found)
+
     return ExtractionResult(values=values, raw_text=lines, any_text_detected=any_text)

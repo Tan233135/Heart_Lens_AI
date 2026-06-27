@@ -84,3 +84,34 @@ def categorize_risk(probability: float) -> str:
     if probability >= MODERATE_RISK_THRESHOLD:
         return "moderate"
     return "low"
+
+
+# --- Result confidence (CLAUDE.md §2, §6) ------------------------------------------------
+#
+# How much should the UI trust a guided-wizard estimate? It depends on how many of the
+# CLINICAL measurement values the user could actually supply. The median imputer (§4) will
+# fill the rest, but every imputed clinical field makes the score less grounded in this
+# person's real data — so we LABEL that honestly rather than presenting false precision (§6).
+#
+# Counted fields are the clinical measurements the wizard collects: sysBP, diaBP, totChol,
+# glucose. heartRate is DELIBERATELY excluded: the wizard never asks for it (it is unknown by
+# design for every user), so counting it would peg every assessment at >=1 missing and make
+# "full" confidence unreachable — which would defeat the whole point of the label. heartRate
+# is still surfaced in the missing-fields list; it just doesn't move the confidence tier.
+CONFIDENCE_CLINICAL_FIELDS = ["sysBP", "diaBP", "totChol", "glucose"]
+
+
+def confidence_from_missing(missing_fields) -> str:
+    """Derive a confidence tier from how many clinical inputs were left unknown (CLAUDE.md §6).
+
+    0 missing  -> "full"   (we have all the clinical measurements; show the full result)
+    1-2 missing -> "partial" (usable, but go lighter on precise numbers)
+    3+ missing -> "rough"  (too little real data — show only a coarse category, no people-grid)
+    """
+    missing = set(missing_fields)
+    n = sum(1 for f in CONFIDENCE_CLINICAL_FIELDS if f in missing)
+    if n == 0:
+        return "full"
+    if n <= 2:
+        return "partial"
+    return "rough"

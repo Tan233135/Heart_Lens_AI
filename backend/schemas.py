@@ -110,6 +110,122 @@ class PredictResponse(BaseModel):
     risk_category: Literal["low", "moderate", "high"]
     model_used: str
     high_risk_threshold: float = Field(..., description="Threshold used to flag 'high' (CLAUDE.md §2)")
+    assessment_id: Optional[int] = Field(
+        default=None,
+        description="Id of the persisted assessment row; None if persistence is unavailable (no DATABASE_URL).",
+    )
+
+
+# Sanity bounds for the two friendly inputs the guided wizard collects instead of BMI.
+# Generous validity ranges (catch slips), NOT clinical limits — BMI is DERIVED from these.
+HEIGHT_CM_BOUNDS = (60.0, 250.0)
+WEIGHT_KG_BOUNDS = (10.0, 350.0)
+
+
+class WizardPredictRequest(BaseModel):
+    """A prediction request from the low-literacy guided wizard (CLAUDE.md §1, §5).
+
+    Differences from PredictRequest, all driven by the audience:
+      - BMI is NOT sent. The wizard asks height + weight (friendlier, answerable without a lab
+        report); the backend derives BMI = weight_kg / (height_m ** 2) — the single source of
+        that formula, so the client can't get it wrong.
+      - Clinical values the user may not know (diabetes, prevalentHyp, sysBP, diaBP, totChol,
+        glucose, heartRate) are Optional and arrive as null when the user answered "don't know".
+        They are passed to the model as NaN for its median imputer to fill — we NEVER substitute
+        a guessed/normal value (CLAUDE.md §2). heartRate is never asked, so it is null by default.
+      - `unknown_fields` lists exactly which features the user left unknown, so the result can be
+        labelled with honest confidence (CLAUDE.md §6; consumed by the confidence task).
+    """
+
+    # Always collected by the wizard (real answers).
+    male: int = Field(..., ge=0, le=1)
+    age: int = Field(..., ge=18, le=120)
+    education: int = Field(..., ge=1, le=4)
+    currentSmoker: int = Field(..., ge=0, le=1)
+    prevalentStroke: int = Field(..., ge=0, le=1)
+    BPMeds: int = Field(..., ge=0, le=1)
+    height_cm: float = Field(..., ge=HEIGHT_CM_BOUNDS[0], le=HEIGHT_CM_BOUNDS[1])
+    weight_kg: float = Field(..., ge=WEIGHT_KG_BOUNDS[0], le=WEIGHT_KG_BOUNDS[1])
+
+    # Conditional / "don't know" -> null. Bounds apply only when a value IS provided.
+    cigsPerDay: Optional[float] = Field(default=None, ge=0, le=100)
+    diabetes: Optional[int] = Field(default=None, ge=0, le=1)
+    prevalentHyp: Optional[int] = Field(default=None, ge=0, le=1)
+    sysBP: Optional[float] = Field(default=None, ge=70, le=300)
+    diaBP: Optional[float] = Field(default=None, ge=40, le=200)
+    totChol: Optional[float] = Field(default=None, ge=80, le=600)
+    glucose: Optional[float] = Field(default=None, ge=30, le=600)
+    heartRate: Optional[float] = Field(default=None, ge=30, le=250)
+
+    unknown_fields: list[str] = Field(
+        default_factory=list,
+        description="Feature names the user explicitly left unknown (sent as null).",
+    )
+    model: Optional[Literal["logistic_regression", "xgboost"]] = Field(default=None)
+
+
+class GuidedPredictResponse(PredictResponse):
+    """PredictResponse plus what the guided flow needs to be transparent about its inputs."""
+
+    bmi: float = Field(..., description="BMI derived from height_cm & weight_kg (kg/m^2)")
+    confidence: Literal["full", "partial", "rough"] = Field(
+        ...,
+        description=(
+            "How much real clinical data backs this estimate (CLAUDE.md §6). 'full' = all "
+            "clinical measurements present; 'partial' = 1-2 missing; 'rough' = 3+ missing, so "
+            "the UI must show only a coarse category, no precise %/people-grid."
+        ),
+    )
+    unknown_fields: list[str] = Field(
+        default_factory=list,
+        description="Features left unknown by the user (sent to the model as null/imputed).",
+    )
+    features_used: dict = Field(
+        default_factory=dict,
+        description="The exact 15-feature dict shown to the model (nulls = imputed by the pipeline).",
+    )
+
+
+class AssessmentRecord(BaseModel):
+    """One persisted assessment as returned by /history (mirrors db.Assessment.to_dict)."""
+
+    id: int
+    created_at: Optional[str] = Field(default=None, description="ISO-8601 timestamp (UTC-aware)")
+    source: str = Field(..., description='"manual" or "image"')
+    model_used: str
+    probability: float
+    risk_category: str
+    high_risk_threshold: float
+    features: dict = Field(default_factory=dict, description="The 15 clinical inputs shown to the model (CLAUDE.md §5)")
+
+
+class HistoryResponse(BaseModel):
+    """Recent assessments, newest first. `db_enabled=False` means no DATABASE_URL is set."""
+
+    db_enabled: bool = Field(..., description="False when persistence is not configured")
+    count: int
+    items: list[AssessmentRecord] = Field(default_factory=list)
+
+
+class DoctorRecord(BaseModel):
+    """One doctor directory entry (CLAUDE.md §13.6). Bilingual fields, public referral info."""
+
+    id: int
+    name_bn: str
+    name_en: str
+    specialty_bn: str
+    specialty_en: str
+    location_bn: str
+    location_en: str
+    phone: str
+
+
+class DoctorsResponse(BaseModel):
+    """Doctor directory search results. `db_enabled=False` means no DATABASE_URL is set."""
+
+    db_enabled: bool = Field(..., description="False when persistence is not configured")
+    count: int
+    items: list[DoctorRecord] = Field(default_factory=list)
 
 
 class PredictFromImageResponse(BaseModel):
