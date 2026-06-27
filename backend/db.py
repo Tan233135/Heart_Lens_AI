@@ -127,6 +127,10 @@ class Doctor(Base):
     specialty_en: Mapped[str] = mapped_column(String(160), nullable=False)
     location_bn: Mapped[str] = mapped_column(String(200), nullable=False)
     location_en: Mapped[str] = mapped_column(String(200), nullable=False)
+    # Optional clinic/hospital name, separate from the area in location_* (CLAUDE.md §13.6).
+    # Nullable: not every referral entry names a specific facility.
+    hospital_bn: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
+    hospital_en: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
     phone: Mapped[str] = mapped_column(String(40), nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     created_at: Mapped[datetime] = mapped_column(
@@ -142,6 +146,8 @@ class Doctor(Base):
             "specialty_en": self.specialty_en,
             "location_bn": self.location_bn,
             "location_en": self.location_en,
+            "hospital_bn": self.hospital_bn,
+            "hospital_en": self.hospital_en,
             "phone": self.phone,
         }
 
@@ -210,14 +216,16 @@ def search_doctors(
     *,
     q: Optional[str] = None,
     specialty: Optional[str] = None,
+    location: Optional[str] = None,
     limit: int = 50,
 ) -> list[dict]:
     """Search the doctor directory (CLAUDE.md §13.6). Empty list if DB is unavailable.
 
     `q` is a free-text term matched case-insensitively across name, specialty, and location in
-    BOTH languages, so a Bangla- or English-typed query finds the same entry. `specialty` is an
-    optional additional filter on the specialty fields. Only active entries are returned, sorted
-    by name for a stable, scannable list.
+    BOTH languages, so a Bangla- or English-typed query finds the same entry. `specialty` and
+    `location` are optional additional filters (each on the matching bilingual columns) and
+    combine with AND — e.g. specialty="Cardiologist" + location="Dhaka" returns only Dhaka
+    cardiologists. Only active entries are returned, sorted by name for a stable, scannable list.
     """
     if session is None:
         return []
@@ -238,6 +246,9 @@ def search_doctors(
     if specialty:
         slike = f"%{specialty.strip()}%"
         stmt = stmt.where(or_(Doctor.specialty_bn.ilike(slike), Doctor.specialty_en.ilike(slike)))
+    if location:
+        llike = f"%{location.strip()}%"
+        stmt = stmt.where(or_(Doctor.location_bn.ilike(llike), Doctor.location_en.ilike(llike)))
 
     stmt = stmt.order_by(Doctor.name_en.asc()).limit(limit)
     return [row.to_dict() for row in session.scalars(stmt)]

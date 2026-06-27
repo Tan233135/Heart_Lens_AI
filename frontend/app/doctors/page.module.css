@@ -61,15 +61,29 @@
   cursor: pointer;
 }
 
-/* --- Specialty chips ------------------------------------------------------ */
+/* --- Filter chips (specialty + location) ---------------------------------- */
+.filterGroup {
+  margin-top: var(--sp-4);
+}
+.filterLabel {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin: 0 0 var(--sp-2);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--c-text-muted);
+}
 .chips {
   display: flex;
   flex-wrap: wrap;
   gap: var(--sp-2);
-  margin-top: var(--sp-3);
 }
 
 .chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
   min-height: 44px;
   padding: var(--sp-2) var(--sp-4);
   font-size: var(--fs-base);
@@ -168,6 +182,18 @@
 .docLocation svg {
   flex: 0 0 auto;
   margin-top: 3px;
+}
+.docHospital {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-2);
+  margin: var(--sp-1) 0 0;
+  font-size: var(--fs-sm);
+  color: var(--c-text-muted);
+}
+.docHospital svg {
+  flex: 0 0 auto;
+  margin-top: 2px;
 }
 
 /* Big, obvious call action — the most useful thing a user can do here. */

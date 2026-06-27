@@ -1,0 +1,11 @@
+# Keep the Docker build context small and reproducible — never ship local virtualenvs, the
+# local SQLite demo DB, caches, or secrets. Deps come from requirements.txt inside the image.
+.venv/
+.venv-ocr/
+__pycache__/
+**/__pycache__/
+*.pyc
+*.db
+.env
+.env.*
+*.log

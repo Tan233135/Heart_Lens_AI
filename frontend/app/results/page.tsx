@@ -127,6 +127,17 @@ function Result({
   const count = Math.max(0, Math.min(100, Math.round(response.probability * 100)));
   const bands = useMemo(() => resolveBands(response), [response]);
 
+  // The doctor directory link, PRE-FILTERED to the most relevant specialist so a worried user
+  // lands on appropriate doctors without configuring filters (CLAUDE.md §2). A rough estimate
+  // (incomplete data) means "get proper tests first" → a general physician; high → cardiologist;
+  // moderate → general physician; low → the full unfiltered list.
+  const doctorsHref = useMemo(() => {
+    if (isRough) return "/doctors?specialty=General%20Physician";
+    if (category === "high") return "/doctors?specialty=Cardiologist";
+    if (category === "moderate") return "/doctors?specialty=General%20Physician";
+    return "/doctors";
+  }, [isRough, category]);
+
   // Dev-only guard: warn if the frontend's display bands disagree with the backend's
   // category, which would mean the env thresholds have drifted from the server's.
   useEffect(() => {
@@ -213,7 +224,7 @@ function Result({
             size="lg"
             fullWidth
             icon={<Icon name="doctor" size={24} />}
-            onClick={() => router.push("/doctors")}
+            onClick={() => router.push(doctorsHref)}
           >
             {lang === "bn" ? "ডাক্তার খুঁজুন" : "Find a doctor"}
           </Button>
@@ -291,7 +302,7 @@ function Result({
           fullWidth
           variant="primary"
           icon={<Icon name="doctor" size={24} />}
-          onClick={() => router.push("/doctors")}
+          onClick={() => router.push(doctorsHref)}
         >
           {lang === "bn" ? "ডাক্তার খুঁজুন" : "Find a doctor"}
         </Button>

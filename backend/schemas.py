@@ -217,6 +217,8 @@ class DoctorRecord(BaseModel):
     specialty_en: str
     location_bn: str
     location_en: str
+    hospital_bn: Optional[str] = None
+    hospital_en: Optional[str] = None
     phone: str
 
 

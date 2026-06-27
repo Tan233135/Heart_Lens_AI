@@ -35,3 +35,4 @@ Thumbs.db
 
 # --- Project context (local only) ---
 CLAUDE.md
+*.db

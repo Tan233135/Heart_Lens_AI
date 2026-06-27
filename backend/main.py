@@ -91,6 +91,38 @@ app.add_middleware(
 
 
 @app.on_event("startup")
+def _verify_ocr_deps_on_startup() -> None:
+    """LOUDLY confirm the heavy OCR deps imported (CLAUDE.md §9 — the likely deploy blocker).
+
+    A fresh Railway build is exactly where a wrong Python version or a failed CPU-torch install
+    resurfaces. We import easyocr + torch up front and log the resolved versions + whether this
+    is a CPU build, so a broken install is a loud line in the STARTUP log — never a silent failure
+    discovered only on the first upload. Importing does NOT build the Reader (that is warm_up_ocr).
+    """
+    try:
+        import torch  # noqa: PLC0415
+        import easyocr  # noqa: PLC0415
+
+        logger.info(
+            "Startup: OCR deps OK — `import easyocr, torch` succeeded "
+            "(torch=%s, cuda_build=%s, easyocr=%s).",
+            torch.__version__, torch.version.cuda, easyocr.__version__,
+        )
+        if torch.version.cuda is not None:
+            logger.warning(
+                "Startup: torch reports a CUDA build (cuda=%s) — on Railway (no GPU) you want the "
+                "CPU wheel (torch==2.5.1+cpu). Check requirements.txt pulls from the CPU index.",
+                torch.version.cuda,
+            )
+    except Exception:
+        logger.exception(
+            "Startup: OCR deps FAILED to import (`import easyocr, torch`). The OCR stack is not "
+            "installed correctly — likely a Python-version or CPU-torch install problem "
+            "(CLAUDE.md §9). The manual-entry path still works; image upload will not."
+        )
+
+
+@app.on_event("startup")
 def _warm_up_ocr_on_startup() -> None:
     """Initialize the OCR engine at startup and LOG success/failure (CLAUDE.md §8).
 
@@ -234,15 +266,18 @@ def history(
 def doctors(
     q: Optional[str] = Query(default=None, description="Free-text search: name / specialty / location (bn or en)"),
     specialty: Optional[str] = Query(default=None, description="Optional specialty filter (bn or en)"),
+    location: Optional[str] = Query(default=None, description="Optional location/area filter (bn or en)"),
     limit: int = Query(default=50, ge=1, le=200),
     db: Session = Depends(get_session),
 ) -> DoctorsResponse:
     """Search the doctor directory (CLAUDE.md §13.6).
 
-    Returns active doctors, optionally filtered by a free-text term and/or specialty. The
-    frontend links here from the results page to guide users toward a real doctor (CLAUDE.md §2).
+    Returns active doctors, optionally filtered by a free-text term, a specialty, and/or a
+    location/area (specialty + location combine with AND). The frontend links here from the
+    results page — pre-filtered by specialty for elevated risk — to guide users toward a real
+    doctor (CLAUDE.md §2).
     """
-    items = search_doctors(db, q=q, specialty=specialty, limit=limit)
+    items = search_doctors(db, q=q, specialty=specialty, location=location, limit=limit)
     return DoctorsResponse(db_enabled=db_enabled(), count=len(items), items=items)
 
 

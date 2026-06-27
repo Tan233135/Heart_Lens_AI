@@ -110,6 +110,9 @@ export interface Doctor {
   specialty_en: string;
   location_bn: string;
   location_en: string;
+  // Optional clinic/hospital name (separate from the area in location_*). May be null.
+  hospital_bn?: string | null;
+  hospital_en?: string | null;
   phone: string;
 }
 

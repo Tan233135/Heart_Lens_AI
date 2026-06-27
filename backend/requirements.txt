@@ -18,10 +18,15 @@ python-multipart>=0.0.9          # required by FastAPI for UploadFile (image upl
 # startup probing for a GPU that isn't there. We pin the CPU-only (`+cpu`) wheels from PyTorch's
 # CPU index, which cuts image size/memory dramatically and removes the GPU probe. EasyOCR is
 # initialized for BOTH 'en' and 'bn' and built ONCE, lazily (see ocr.py, §8).
+# EXACT pins below are the LOCALLY-VERIFIED, known-good set (torch/torchvision/numpy/easyocr).
+# Do NOT bump blindly: torch==2.5.1 is the highest CPU wheel that builds under Python 3.12 with
+# a compatible torchvision, and numpy is held at 1.x because easyocr/opencv-python expect <2.
+# (Note: there is no torch 2.12 / torchvision 0.27 / numpy 2.5 — those would fail `pip install`.)
 --extra-index-url https://download.pytorch.org/whl/cpu
 torch==2.5.1+cpu
 torchvision==0.20.1+cpu
-easyocr>=1.7
+numpy==1.26.4
+easyocr==1.7.2
 
 # Server-side image downscaling before OCR (ocr.py: _downscale_for_ocr). Pillow ships with
 # EasyOCR already, but pin it explicitly since we now depend on it directly.

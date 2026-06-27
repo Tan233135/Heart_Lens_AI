@@ -97,12 +97,13 @@ export async function predictFromImage(
 // Search the doctor directory (CLAUDE.md §13.6). `q` matches name/specialty/location in
 // either language; both args are optional (no args returns the full active list).
 export async function getDoctors(
-  params: { q?: string; specialty?: string } = {},
+  params: { q?: string; specialty?: string; location?: string } = {},
   signal?: AbortSignal,
 ): Promise<DoctorsResponse> {
   const qs = new URLSearchParams();
   if (params.q) qs.set("q", params.q);
   if (params.specialty) qs.set("specialty", params.specialty);
+  if (params.location) qs.set("location", params.location);
   const suffix = qs.toString() ? `?${qs.toString()}` : "";
   const res = await fetch(`${BASE}/doctors${suffix}`, { signal });
   return parseJson<DoctorsResponse>(res);
