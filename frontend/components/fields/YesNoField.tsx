@@ -15,6 +15,7 @@ export default function YesNoField({
   value,
   onChange,
   error,
+  badge,
 }: {
   icon: IconName;
   label: string;
@@ -22,13 +23,14 @@ export default function YesNoField({
   value: number | undefined; // 1 = yes, 0 = no, undefined = unanswered
   onChange: (v: number) => void;
   error?: string;
+  badge?: string;
 }) {
   const { lang } = useI18n();
   const yes = lang === "bn" ? "হ্যাঁ" : "Yes";
   const no = lang === "bn" ? "না" : "No";
 
   return (
-    <FieldShell icon={icon} label={label} helper={helper} error={error}>
+    <FieldShell icon={icon} label={label} helper={helper} error={error} badge={badge}>
       <div className={styles.yesno} role="group" aria-label={label}>
         <button
           type="button"

@@ -41,6 +41,21 @@
   color: var(--c-text-muted);
 }
 
+/* Provenance hint for OCR-prefilled fields — draws the eye so the user confirms them. */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: var(--sp-2);
+  padding: 2px 8px;
+  vertical-align: middle;
+  background: var(--c-primary);
+  color: var(--c-primary-contrast);
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
 .error {
   display: flex;
   align-items: center;

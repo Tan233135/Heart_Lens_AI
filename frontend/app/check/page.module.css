@@ -1,80 +1,108 @@
-.intro {
-  padding-block: var(--sp-4) var(--sp-5);
-}
+/* Guided wizard layout (CLAUDE.md §1). One question per screen, centered, big and calm. */
 
-.title {
-  margin-bottom: var(--sp-2);
-}
-
-.sub {
-  color: var(--c-text-muted);
-  font-size: var(--fs-base);
-  margin-bottom: var(--sp-4);
-}
-
-.progress {
-  height: 12px;
-  background: var(--c-border);
-  border-radius: 999px;
-  overflow: hidden;
-}
-
-.progressBar {
-  height: 100%;
-  background: var(--c-primary);
-  border-radius: 999px;
-  transition: width 0.25s ease;
-}
-
-.progressLabel {
-  margin: var(--sp-2) 0 0;
-  font-size: var(--fs-sm);
-  color: var(--c-text-muted);
-  text-align: right;
-}
-
-.group {
-  margin-bottom: var(--sp-5);
-  padding: var(--sp-4) var(--sp-5);
-}
-
-.groupTitle {
+.topBar {
   display: flex;
   align-items: center;
-  gap: var(--sp-3);
-  font-size: var(--fs-lg);
-  margin-bottom: var(--sp-3);
-  padding-bottom: var(--sp-3);
-  border-bottom: 2px solid var(--c-border);
+  gap: var(--sp-2);
+  padding: var(--sp-3) 0 var(--sp-4);
 }
 
-.groupIcon {
+.backBtn {
+  flex: 0 0 auto;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 44px;
-  height: 44px;
-  border-radius: 12px;
-  background: var(--c-primary);
-  color: var(--c-primary-contrast);
+  width: var(--tap-min);
+  height: var(--tap-min);
+  border-radius: 50%;
+  border: 2px solid var(--c-border);
+  background: var(--c-surface);
+  color: var(--c-text);
+  cursor: pointer;
+}
+.backBtn[disabled] {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.stepCount {
+  flex: 0 0 auto;
+  min-width: 44px;
+  text-align: right;
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  color: var(--c-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* The .dots progressbar (ProgressDots) sits between and takes the slack. */
+.topBar > div[role="progressbar"] {
+  flex: 1 1 auto;
+}
+
+.screen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding-top: var(--sp-4);
+  animation: hl-fade-in 0.28s ease-out both;
+}
+
+.qIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 96px;
+  height: 96px;
+  border-radius: 50%;
+  background: #e9f5f6;
+  color: var(--c-primary-dark);
+  margin-bottom: var(--sp-4);
+}
+.reviewIcon {
+  background: var(--c-risk-low-bg);
+  color: var(--c-risk-low);
+}
+
+.question {
+  font-size: var(--fs-xl);
+  line-height: 1.25;
+  margin-bottom: var(--sp-1);
+}
+
+.questionAlt {
+  font-size: var(--fs-base);
+  color: var(--c-text-muted);
+  margin-bottom: var(--sp-4);
+}
+
+.audioWrap {
+  margin: var(--sp-2) 0 var(--sp-3);
+}
+
+.nextWrap {
+  width: 100%;
+  margin-top: var(--sp-6);
+}
+
+.reviewHint {
+  font-size: var(--fs-sm);
+  color: var(--c-text-muted);
+  margin-bottom: var(--sp-3);
 }
 
 .apiError {
   display: flex;
   align-items: center;
   gap: var(--sp-2);
+  width: 100%;
   padding: var(--sp-4);
-  margin-bottom: var(--sp-4);
+  margin-top: var(--sp-4);
   background: var(--c-risk-high-bg);
   border: 1px solid var(--c-risk-high);
   border-radius: var(--radius);
   color: var(--c-risk-high);
   font-weight: 600;
-}
-
-.actions {
-  position: sticky;
-  bottom: 0;
-  padding: var(--sp-4) 0 var(--sp-5);
-  background: linear-gradient(to top, var(--c-bg) 70%, transparent);
+  text-align: left;
 }

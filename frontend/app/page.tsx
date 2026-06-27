@@ -4,6 +4,7 @@
 // No feature flows yet (manual form, OCR, results come later, CLAUDE.md §13).
 
 import { useRouter } from "next/navigation";
+import AudioButton from "@/components/AudioButton";
 import Button from "@/components/Button";
 import Icon from "@/components/Icon";
 import { useI18n } from "@/lib/i18n";
@@ -19,30 +20,35 @@ export default function HomePage() {
         <h1 className={styles.title}>{t("appName")}</h1>
         <p className={styles.tagline}>{t("tagline")}</p>
 
-        {/* Manual entry is the safe baseline path (CLAUDE.md §13). The photo-upload flow
-            comes next; surfaced here as "coming soon" for now. */}
+        {/* Spoken welcome in the active language (CLAUDE.md §1) — for users who read with difficulty. */}
+        <AudioButton
+          clip="welcome"
+          labelBn="স্বাগতম শুনুন"
+          labelEn="Play welcome"
+        />
+
+        {/* Primary flow: photo of the report (OCR). It always lands on the confirm/manual
+            step, so it's safe even when OCR fails (CLAUDE.md §2). */}
         <Button
           size="lg"
           fullWidth
-          icon={<Icon name="edit" size={24} />}
-          onClick={() => router.push("/check")}
+          icon={<CameraIcon />}
+          onClick={() => router.push("/scan")}
         >
-          {lang === "bn" ? "তথ্য দিয়ে শুরু করুন" : "Start by entering details"}
+          {lang === "bn" ? "রিপোর্টের ছবি তুলুন" : "Upload report photo"}
         </Button>
 
+        {/* Safe baseline: type the values by hand (no OCR dependency, CLAUDE.md §13). */}
         <Button
           size="lg"
           fullWidth
           variant="secondary"
           className={styles.uploadBtn}
-          icon={<CameraIcon />}
-          disabled
-          aria-disabled="true"
-          title={t("comingSoon")}
+          icon={<Icon name="edit" size={24} />}
+          onClick={() => router.push("/check")}
         >
-          {lang === "bn" ? "রিপোর্টের ছবি তুলুন" : "Upload report photo"}
+          {lang === "bn" ? "হাতে তথ্য দিন" : "Enter details by hand"}
         </Button>
-        <p className={styles.soon}>{t("comingSoon")}</p>
       </section>
 
       {/* Design-system preview: confirms the risk palette + button variants render.

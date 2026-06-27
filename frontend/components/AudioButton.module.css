@@ -28,9 +28,31 @@
 .btn:active {
   transform: translateY(1px);
 }
-
-.note {
-  margin: 0;
-  font-size: var(--fs-sm);
+.btn[disabled] {
+  opacity: 0.5;
+  cursor: not-allowed;
+  border-color: var(--c-text-muted);
   color: var(--c-text-muted);
+}
+.btn[disabled]:hover {
+  background: var(--c-surface);
+}
+
+/* Gentle pulse while playing, to signal sound is coming out on devices with no/low volume UI. */
+.btn[aria-pressed="true"] {
+  animation: pulse 1.4s ease-in-out infinite;
+}
+@keyframes pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 var(--c-risk-low-bg);
+  }
+  50% {
+    box-shadow: 0 0 0 6px var(--c-risk-low-bg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .btn[aria-pressed="true"] {
+    animation: none;
+  }
 }

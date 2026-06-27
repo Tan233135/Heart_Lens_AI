@@ -23,7 +23,18 @@ export type IconName =
   | "arrow-left"
   | "doctor"
   | "speaker"
-  | "stop";
+  | "stop"
+  | "camera"
+  | "image"
+  | "upload"
+  | "search"
+  | "phone"
+  | "location"
+  | "plus"
+  | "minus"
+  | "question"
+  | "ruler"
+  | "graduation";
 
 const PATHS: Record<IconName, React.ReactNode> = {
   person: (
@@ -126,6 +137,61 @@ const PATHS: Record<IconName, React.ReactNode> = {
     </>
   ),
   stop: <rect x="6" y="6" width="12" height="12" rx="2.5" />,
+  camera: (
+    <>
+      <path d="M4 7h3l2-2h6l2 2h3a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1Z" />
+      <circle cx="12" cy="13" r="3.5" />
+    </>
+  ),
+  image: (
+    <>
+      <rect x="3.5" y="5" width="17" height="14" rx="2" />
+      <circle cx="9" cy="10" r="1.6" />
+      <path d="m4 18 5-5 4 4 3-3 4 4" />
+    </>
+  ),
+  upload: (
+    <>
+      <path d="M12 16V4M7 9l5-5 5 5" />
+      <path d="M5 16v3a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-3" />
+    </>
+  ),
+  search: (
+    <>
+      <circle cx="11" cy="11" r="7" />
+      <path d="m20 20-3.5-3.5" />
+    </>
+  ),
+  phone: (
+    <path d="M6.5 3.5h3l1.5 4-2 1.5a11 11 0 0 0 5 5l1.5-2 4 1.5v3a2 2 0 0 1-2.2 2A16.5 16.5 0 0 1 4.5 5.7 2 2 0 0 1 6.5 3.5Z" />
+  ),
+  location: (
+    <>
+      <path d="M12 21s7-5.5 7-11a7 7 0 0 0-14 0c0 5.5 7 11 7 11Z" />
+      <circle cx="12" cy="10" r="2.5" />
+    </>
+  ),
+  plus: <path d="M12 5v14M5 12h14" />,
+  minus: <path d="M5 12h14" />,
+  question: (
+    <>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M9.2 9.3a2.8 2.8 0 0 1 5.3 1c0 1.8-2.7 2.3-2.7 4" />
+      <circle cx="12" cy="17.5" r="0.6" fill="currentColor" stroke="none" />
+    </>
+  ),
+  ruler: (
+    <>
+      <rect x="3" y="8" width="18" height="8" rx="1.5" transform="rotate(-45 12 12)" />
+      <path d="M8.5 8.5l1.5 1.5M11 6l2 2M13.5 3.5l1.5 1.5" />
+    </>
+  ),
+  graduation: (
+    <>
+      <path d="M2.5 8.5 12 4l9.5 4.5L12 13 2.5 8.5Z" />
+      <path d="M6 10.5V15c0 1.4 2.7 2.5 6 2.5s6-1.1 6-2.5v-4.5" />
+    </>
+  ),
 };
 
 interface IconProps {

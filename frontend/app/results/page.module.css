@@ -129,6 +129,42 @@
   margin-top: var(--sp-5);
 }
 
+/* Prominent "see a doctor" callout for moderate/high risk (§2). Reuses the category
+   color treatment (.moderate / .high set the border + tinted background). */
+.doctorCallout {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  margin-top: var(--sp-5);
+  padding: var(--sp-4) var(--sp-5);
+  border: 2px solid;
+  border-radius: var(--radius);
+}
+
+.calloutIcon {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+}
+.moderate .calloutIcon {
+  background: var(--c-risk-moderate);
+  color: #fff;
+}
+.high .calloutIcon {
+  background: var(--c-risk-high);
+  color: #fff;
+}
+
+.calloutText {
+  margin: 0;
+  font-size: var(--fs-base);
+  font-weight: 700;
+}
+
 .actions {
   display: flex;
   flex-direction: column;
@@ -142,4 +178,80 @@
   display: flex;
   flex-direction: column;
   gap: var(--sp-4);
+}
+
+/* --- Confidence chip (CLAUDE.md §6) ----------------------------------------- */
+.confChip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin: var(--sp-2) auto var(--sp-4);
+  padding: var(--sp-2) var(--sp-4);
+  border-radius: 999px;
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  border: 1.5px solid;
+}
+.confFull {
+  background: var(--c-risk-low-bg);
+  border-color: var(--c-risk-low);
+  color: var(--c-risk-low);
+}
+.confPartial {
+  background: var(--c-risk-moderate-bg);
+  border-color: var(--c-risk-moderate);
+  color: var(--c-risk-moderate);
+}
+.confRough {
+  background: var(--c-risk-high-bg);
+  border-color: var(--c-risk-high);
+  color: var(--c-risk-high);
+}
+
+/* --- Partial note ----------------------------------------------------------- */
+.partialNote {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-4);
+  background: var(--c-risk-moderate-bg);
+  border: 1px solid var(--c-risk-moderate);
+}
+.partialNote svg {
+  flex: 0 0 auto;
+  color: var(--c-risk-moderate);
+  margin-top: 2px;
+}
+.partialNote p {
+  margin: 0;
+  font-size: var(--fs-base);
+  line-height: 1.5;
+}
+
+/* --- Rough notice (no people-grid, coarse category only, §6) ---------------- */
+.roughCard {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-4);
+  background: var(--c-risk-high-bg);
+  border: 2px solid var(--c-risk-high);
+}
+.roughIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: var(--c-surface);
+  color: var(--c-risk-high);
+}
+.roughText {
+  margin: 0;
+  font-size: var(--fs-base);
+  font-weight: 600;
+  line-height: 1.5;
 }

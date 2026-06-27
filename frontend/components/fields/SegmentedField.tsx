@@ -16,6 +16,7 @@ export default function SegmentedField({
   value,
   onChange,
   error,
+  badge,
 }: {
   icon: IconName;
   label: string;
@@ -24,10 +25,11 @@ export default function SegmentedField({
   value: number | undefined;
   onChange: (v: number) => void;
   error?: string;
+  badge?: string;
 }) {
   const { lang } = useI18n();
   return (
-    <FieldShell icon={icon} label={label} helper={helper} error={error}>
+    <FieldShell icon={icon} label={label} helper={helper} error={error} badge={badge}>
       <div className={styles.segmented} role="group" aria-label={label}>
         {options.map((opt) => (
           <button

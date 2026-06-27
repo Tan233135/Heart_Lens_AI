@@ -35,6 +35,45 @@ export interface PredictResponse {
   risk_category: RiskCategory;
   model_used: string;
   high_risk_threshold: number;
+  assessment_id?: number | null;
+}
+
+// Mirrors WizardPredictRequest (backend/schemas.py). The guided wizard sends height + weight
+// (BMI is derived server-side) and `null` for any value the user marked "don't know", plus the
+// list of those unknown feature names (CLAUDE.md §1, §2, §5).
+export interface GuidedPredictRequest {
+  male: number;
+  age: number;
+  education: number;
+  currentSmoker: number;
+  prevalentStroke: number;
+  BPMeds: number;
+  height_cm: number;
+  weight_kg: number;
+  // Conditional / "don't know" -> null
+  cigsPerDay?: number | null;
+  diabetes?: number | null;
+  prevalentHyp?: number | null;
+  sysBP?: number | null;
+  diaBP?: number | null;
+  totChol?: number | null;
+  glucose?: number | null;
+  heartRate?: number | null;
+  unknown_fields: string[];
+  model?: ModelName;
+}
+
+// How much real clinical data backs a guided estimate (CLAUDE.md §6). Drives how honestly
+// the results page presents the number: "full" = show everything; "partial" = lighter on
+// precise numbers; "rough" = coarse category only, no percentage / people-grid.
+export type Confidence = "full" | "partial" | "rough";
+
+// Mirrors GuidedPredictResponse.
+export interface GuidedPredictResponse extends PredictResponse {
+  bmi: number;
+  confidence: Confidence;
+  unknown_fields: string[];
+  features_used: Record<string, number | null>;
 }
 
 // Mirrors PredictFromImageResponse. The frontend MUST honor `fall_back_to_manual`
@@ -56,4 +95,23 @@ export interface PredictFromImageResponse {
 export interface HealthResponse {
   status: string;
   default_model: string;
+}
+
+// Mirrors DoctorRecord (backend/schemas.py) — a bilingual doctor directory entry (§13.6).
+export interface Doctor {
+  id: number;
+  name_bn: string;
+  name_en: string;
+  specialty_bn: string;
+  specialty_en: string;
+  location_bn: string;
+  location_en: string;
+  phone: string;
+}
+
+// Mirrors DoctorsResponse.
+export interface DoctorsResponse {
+  db_enabled: boolean;
+  count: number;
+  items: Doctor[];
 }

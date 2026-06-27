@@ -25,6 +25,7 @@ export default function NumberField({
   step,
   unit,
   error,
+  badge,
 }: {
   icon: IconName;
   label: string;
@@ -36,6 +37,7 @@ export default function NumberField({
   step: number;
   unit?: string;
   error?: string;
+  badge?: string;
 }) {
   const id = useId();
 
@@ -55,7 +57,7 @@ export default function NumberField({
   };
 
   return (
-    <FieldShell icon={icon} label={label} helper={helper} error={error} htmlFor={id}>
+    <FieldShell icon={icon} label={label} helper={helper} error={error} htmlFor={id} badge={badge}>
       <div className={styles.numberRow}>
         <button
           type="button"

@@ -1,117 +1,146 @@
 "use client";
 
-// Manual entry form — the SAFE baseline path that does not depend on OCR (CLAUDE.md §13).
-// Collects the 15 §5 inputs with friendly, icon-led controls, validates ranges on the
-// client (the backend re-validates), then POSTs /predict and routes to the results page.
+// Guided wizard — the SAFE, OCR-independent path (CLAUDE.md §13), reworked for a low-literacy,
+// possibly illiterate audience (CLAUDE.md §1). ONE question per screen: a large icon, the
+// question in plain Bangla AND English, a prominent "play audio" button, and big tappable
+// answers (icon buttons / steppers — never free-text numbers). Progress dots + a Back button
+// to fix any prior answer.
+//
+// Maps the 15 §5 model features to plain questions (see lib/wizardConfig). Anything the user
+// marks "don't know" is sent to the backend as null (NEVER a guessed value, CLAUDE.md §2),
+// with the unknown-field list so the result can carry honest confidence (CLAUDE.md §6).
+//
+// When reached from the photo flow, it pre-seeds whatever OCR actually extracted; the user
+// still steps through and confirms every value (no value is ever trusted unconfirmed, §2).
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { AnimatePresence, motion } from "framer-motion";
 
 import Button from "@/components/Button";
 import Icon from "@/components/Icon";
-import NumberField from "@/components/fields/NumberField";
-import SegmentedField from "@/components/fields/SegmentedField";
-import YesNoField from "@/components/fields/YesNoField";
-import { predict } from "@/lib/api";
-import { ALL_FIELDS, FORM_GROUPS, type FeatureKey, type FieldDef } from "@/lib/formConfig";
-import { pick, useI18n } from "@/lib/i18n";
+import ChoiceGrid from "@/components/wizard/ChoiceGrid";
+import ProgressDots from "@/components/wizard/ProgressDots";
+import QuestionAudio from "@/components/wizard/QuestionAudio";
+import Stepper from "@/components/wizard/Stepper";
+import { predictGuided } from "@/lib/api";
+import { useI18n } from "@/lib/i18n";
+import { clearOcr, loadOcr } from "@/lib/ocrStore";
 import { saveResult } from "@/lib/resultStore";
-import type { PatientFeatures } from "@/lib/types";
+import type { PredictFromImageResponse } from "@/lib/types";
+import {
+  buildRequest,
+  STEPS,
+  visibleSteps,
+  type Answers,
+  type Step,
+} from "@/lib/wizardConfig";
 import styles from "./page.module.css";
 
-type Values = Partial<Record<FeatureKey, number>>;
-type Errors = Partial<Record<FeatureKey, string>>;
+const REVIEW = "review";
+
+// Seed answers from an OCR payload: keep only recognized numeric §5 values, and flip the
+// "do you know your X numbers?" gates on when the matching clinical values were read, so the
+// user lands on a pre-filled value to confirm rather than re-entering it.
+function answersFromOcr(ocr: PredictFromImageResponse | null): Answers {
+  if (!ocr) return {};
+  const v = ocr.extracted_values ?? {};
+  const num = (k: string): number | undefined =>
+    typeof v[k] === "number" && Number.isFinite(v[k]) ? v[k] : undefined;
+
+  const a: Answers = {
+    male: num("male"),
+    age: num("age"),
+    education: num("education"),
+    currentSmoker: num("currentSmoker"),
+    cigsPerDay: num("cigsPerDay"),
+    BPMeds: num("BPMeds"),
+    prevalentStroke: num("prevalentStroke"),
+    prevalentHyp: num("prevalentHyp"),
+    diabetes: num("diabetes"),
+    sysBP: num("sysBP"),
+    diaBP: num("diaBP"),
+    totChol: num("totChol"),
+    glucose: num("glucose"),
+  };
+  if (a.sysBP !== undefined && a.diaBP !== undefined) a.knowsBP = 1;
+  if (a.totChol !== undefined) a.knowsChol = 1;
+  if (a.glucose !== undefined) a.knowsGlucose = 1;
+  return a;
+}
 
 export default function CheckPage() {
   const { lang } = useI18n();
   const router = useRouter();
 
-  const [values, setValues] = useState<Values>({});
-  const [errors, setErrors] = useState<Errors>({});
+  // Consume any OCR payload ONCE on mount (so a later plain manual visit isn't pre-seeded).
+  const [ocr] = useState<PredictFromImageResponse | null>(() => loadOcr());
+  const [answers, setAnswers] = useState<Answers>(() => answersFromOcr(ocr));
+  const [currentId, setCurrentId] = useState<string>(STEPS[0].id);
   const [submitting, setSubmitting] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
+  const topRef = useRef<HTMLDivElement>(null);
 
-  // Fields actually shown right now (cigarettes/day only appears for smokers).
-  const visibleFields = useMemo(
-    () => ALL_FIELDS.filter((f) => (f.showIf ? f.showIf(values) : true)),
-    [values],
-  );
-  const answered = visibleFields.filter((f) => values[f.key] !== undefined).length;
-  const total = visibleFields.length;
+  useEffect(() => {
+    if (ocr) clearOcr();
+  }, [ocr]);
 
-  function setValue(key: FeatureKey, v: number | undefined) {
-    setValues((prev) => {
-      const next: Values = { ...prev, [key]: v };
-      // Smoking is conditional: a non-smoker has 0 cigarettes/day (auto-filled, field hidden);
-      // becoming a smoker clears it so the real count must be entered.
-      if (key === "currentSmoker") {
-        next.cigsPerDay = v === 0 ? 0 : undefined;
-      }
-      return next;
-    });
-    setErrors((prev) => {
-      if (!prev[key]) return prev;
-      const n = { ...prev };
-      delete n[key];
-      return n;
-    });
+  // The ordered path for the CURRENT answers (+ the final review screen).
+  const path = useMemo(() => [...visibleSteps(answers).map((s) => s.id), REVIEW], [answers]);
+  const idx = path.indexOf(currentId);
+  const safeIdx = idx === -1 ? 0 : idx;
+  const isReview = currentId === REVIEW;
+  const step: Step | undefined = isReview ? undefined : STEPS.find((s) => s.id === currentId);
+
+  // Give stepper questions a starting value the moment they appear, so "Next" always has a
+  // value to carry forward even if the user doesn't touch the buttons.
+  useEffect(() => {
+    if (step && step.kind === "stepper" && answers[step.field] === undefined) {
+      setAnswers((prev) => ({ ...prev, [step.field]: step.default }));
+    }
+    // Scroll back to the question top on every screen change.
+    topRef.current?.scrollIntoView({ block: "start" });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentId]);
+
+  function goNext(fromId: string, a: Answers) {
+    const order = [...visibleSteps(a).map((s) => s.id), REVIEW];
+    const i = order.indexOf(fromId);
+    setCurrentId(order[Math.min(i + 1, order.length - 1)]);
     setApiError(null);
   }
 
-  function validate(): Errors {
-    const next: Errors = {};
-    for (const f of visibleFields) {
-      const v = values[f.key];
-      if (v === undefined || Number.isNaN(v)) {
-        next[f.key] = lang === "bn" ? "এই তথ্যটি দিন" : "Please fill this in";
-        continue;
-      }
-      if (f.type === "number" && f.min !== undefined && f.max !== undefined) {
-        if (v < f.min || v > f.max) {
-          next[f.key] =
-            lang === "bn"
-              ? `মান ${f.min}–${f.max} এর মধ্যে দিন`
-              : `Enter a value between ${f.min} and ${f.max}`;
-        }
-      }
-    }
-    return next;
+  function goBack() {
+    const i = path.indexOf(currentId);
+    if (i > 0) setCurrentId(path[i - 1]);
   }
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  function onChoose(s: Step, value: number | null) {
+    const next = { ...answers, [s.field]: value };
+    setAnswers(next);
+    // Small pause so the chosen button visibly highlights before advancing.
+    window.setTimeout(() => goNext(s.id, next), 200);
+  }
+
+  async function submit() {
     setApiError(null);
-    const found = validate();
-    setErrors(found);
-
-    if (Object.keys(found).length > 0) {
-      // Jump to the first field with a problem so the user isn't left guessing.
-      const firstKey = visibleFields.find((f) => found[f.key])?.key;
-      if (firstKey) {
-        document.getElementById(`field-${firstKey}`)?.scrollIntoView({
-          behavior: "smooth",
-          block: "center",
-        });
-      }
-      return;
-    }
-
-    // All 15 are present and in range — safe to build the typed feature object.
-    const features = Object.fromEntries(
-      ALL_FIELDS.map((f) => [f.key, values[f.key] as number]),
-    ) as unknown as PatientFeatures;
-
     setSubmitting(true);
     try {
-      const response = await predict({ features }); // model omitted -> backend default (logreg)
-      saveResult({ features, response, source: "manual" });
+      const req = buildRequest(answers);
+      const response = await predictGuided(req);
+      saveResult({
+        features: response.features_used,
+        response,
+        source: "guided",
+        confidence: response.confidence,
+        unknownFields: response.unknown_fields,
+        rough: response.confidence === "rough",
+      });
       router.push("/results");
     } catch {
       setApiError(
         lang === "bn"
           ? "দুঃখিত, ফলাফল আনতে সমস্যা হয়েছে। ইন্টারনেট দেখে আবার চেষ্টা করুন।"
-          : "Sorry, something went wrong fetching the result. Check your connection and try again.",
+          : "Sorry, something went wrong. Check your connection and try again.",
       );
       setSubmitting(false);
     }
@@ -119,132 +148,162 @@ export default function CheckPage() {
 
   return (
     <div className="container fade-in">
-      <div className={styles.intro}>
-        <h1 className={styles.title}>{lang === "bn" ? "তথ্য দিন" : "Enter your details"}</h1>
-        <p className={styles.sub}>
-          {lang === "bn"
-            ? "আপনার রিপোর্ট দেখে সংখ্যাগুলো লিখুন। সব ঘর পূরণ করুন।"
-            : "Copy the numbers from your report. Please fill every field."}
-        </p>
-        <div
-          className={styles.progress}
-          role="progressbar"
-          aria-valuenow={answered}
-          aria-valuemin={0}
-          aria-valuemax={total}
+      <div ref={topRef} className={styles.topBar}>
+        <button
+          type="button"
+          className={styles.backBtn}
+          onClick={goBack}
+          disabled={safeIdx === 0}
+          aria-label={lang === "bn" ? "আগের প্রশ্ন" : "Previous question"}
         >
-          <div className={styles.progressBar} style={{ width: `${(answered / total) * 100}%` }} />
-        </div>
-        <p className={styles.progressLabel}>
-          {answered} / {total} {lang === "bn" ? "পূরণ হয়েছে" : "filled"}
-        </p>
+          <Icon name="arrow-left" size={24} />
+        </button>
+        <ProgressDots total={path.length} current={safeIdx} />
+        <span className={styles.stepCount}>
+          {safeIdx + 1}/{path.length}
+        </span>
       </div>
 
-      <form onSubmit={handleSubmit} noValidate>
-        {FORM_GROUPS.map((group) => (
-          <section key={group.id} className={`card ${styles.group}`}>
-            <h2 className={styles.groupTitle}>
-              <span className={styles.groupIcon} aria-hidden="true">
-                <Icon name={group.icon} size={24} />
-              </span>
-              {pick(lang, group.title)}
-            </h2>
-
-            {group.fields.map((field) => {
-              const hidden = field.showIf ? !field.showIf(values) : false;
-              if (hidden) return null;
-              return (
-                <AnimatePresence key={field.key} initial={false}>
-                  <motion.div
-                    id={`field-${field.key}`}
-                    initial={{ opacity: 0, height: 0 }}
-                    animate={{ opacity: 1, height: "auto" }}
-                    transition={{ duration: 0.2 }}
-                  >
-                    {renderField(field, values[field.key], errors[field.key], lang, setValue)}
-                  </motion.div>
-                </AnimatePresence>
-              );
-            })}
-          </section>
-        ))}
-
-        {apiError ? (
-          <p className={styles.apiError} role="alert">
-            <Icon name="cross" size={20} />
-            {apiError}
-          </p>
-        ) : null}
-
-        <div className={styles.actions}>
-          <Button
-            type="submit"
-            size="lg"
-            fullWidth
-            disabled={submitting}
-            icon={<Icon name="heart" size={24} />}
-          >
-            {submitting
-              ? lang === "bn"
-                ? "অপেক্ষা করুন…"
-                : "Please wait…"
-              : lang === "bn"
-                ? "ঝুঁকি দেখুন"
-                : "See my risk"}
-          </Button>
-        </div>
-      </form>
+      {isReview ? (
+        <ReviewScreen lang={lang} submitting={submitting} apiError={apiError} onSubmit={submit} />
+      ) : step ? (
+        <QuestionScreen
+          key={step.id}
+          step={step}
+          lang={lang}
+          answers={answers}
+          onChoose={onChoose}
+          onStep={(v) => setAnswers((prev) => ({ ...prev, [step.field]: v }))}
+          onNext={() => goNext(step.id, answers)}
+        />
+      ) : null}
     </div>
   );
 }
 
-function renderField(
-  field: FieldDef,
-  value: number | undefined,
-  error: string | undefined,
-  lang: ReturnType<typeof useI18n>["lang"],
-  setValue: (key: FeatureKey, v: number | undefined) => void,
-) {
-  const label = pick(lang, field.label);
-  const helper = field.helper ? pick(lang, field.helper) : undefined;
+function QuestionScreen({
+  step,
+  lang,
+  answers,
+  onChoose,
+  onStep,
+  onNext,
+}: {
+  step: Step;
+  lang: "bn" | "en";
+  answers: Answers;
+  onChoose: (s: Step, value: number | null) => void;
+  onStep: (v: number) => void;
+  onNext: () => void;
+}) {
+  const otherLang = lang === "bn" ? "en" : "bn";
 
-  if (field.type === "yesno") {
-    return (
-      <YesNoField
-        icon={field.icon}
-        label={label}
-        helper={helper}
-        value={value}
-        error={error}
-        onChange={(v) => setValue(field.key, v)}
-      />
-    );
-  }
-  if (field.type === "segmented") {
-    return (
-      <SegmentedField
-        icon={field.icon}
-        label={label}
-        helper={helper}
-        options={field.options ?? []}
-        value={value}
-        error={error}
-        onChange={(v) => setValue(field.key, v)}
-      />
-    );
-  }
   return (
-    <NumberField
-      icon={field.icon}
-      label={label}
-      helper={helper}
-      value={value}
-      error={error}
-      min={field.min ?? 0}
-      max={field.max ?? 100}
-      step={field.step ?? 1}
-      unit={field.unit}
-      onChange={(v) => setValue(field.key, v)}
-    />
+    <section className={styles.screen}>
+      <span className={styles.qIcon} aria-hidden="true">
+        <Icon name={step.icon} size={56} />
+      </span>
+
+      {/* Question in BOTH languages — primary large, the other smaller beneath (CLAUDE.md §1). */}
+      <h1 className={styles.question}>{step.question[lang]}</h1>
+      <p className={styles.questionAlt} lang={otherLang}>
+        {step.question[otherLang]}
+      </p>
+
+      <div className={styles.audioWrap}>
+        <QuestionAudio clipBase={`q_${step.id}`} textBn={step.speak.bn} textEn={step.speak.en} />
+      </div>
+
+      {step.kind === "choice" ? (
+        <ChoiceGrid
+          options={step.options}
+          columns={step.columns}
+          selected={answers[step.field]}
+          onSelect={(value) => onChoose(step, value)}
+        />
+      ) : (
+        <>
+          <Stepper
+            value={(answers[step.field] as number) ?? step.default}
+            min={step.min}
+            max={step.max}
+            step={step.step}
+            bigStep={step.bigStep}
+            unit={step.unit ? step.unit[lang] : undefined}
+            format={step.format}
+            onChange={onStep}
+          />
+          <div className={styles.nextWrap}>
+            <Button size="lg" fullWidth icon={<Icon name="check" size={24} />} onClick={onNext}>
+              {lang === "bn" ? "ঠিক আছে" : "OK, next"}
+            </Button>
+          </div>
+        </>
+      )}
+    </section>
+  );
+}
+
+function ReviewScreen({
+  lang,
+  submitting,
+  apiError,
+  onSubmit,
+}: {
+  lang: "bn" | "en";
+  submitting: boolean;
+  apiError: string | null;
+  onSubmit: () => void;
+}) {
+  return (
+    <section className={styles.screen}>
+      <span className={`${styles.qIcon} ${styles.reviewIcon}`} aria-hidden="true">
+        <Icon name="heart" size={56} />
+      </span>
+      <h1 className={styles.question}>
+        {lang === "bn" ? "সব শেষ! ফলাফল দেখি" : "All done! Let's see your result"}
+      </h1>
+      <p className={styles.questionAlt} lang={lang === "bn" ? "en" : "bn"}>
+        {lang === "bn" ? "All done! Let's see your result" : "সব শেষ! ফলাফল দেখি"}
+      </p>
+      <p className={styles.reviewHint}>
+        {lang === "bn"
+          ? "আগের কোনো উত্তর বদলাতে চাইলে উপরে বাঁ দিকের তীর চাপুন।"
+          : "To change an earlier answer, use the back arrow at the top left."}
+      </p>
+
+      <div className={styles.audioWrap}>
+        <QuestionAudio
+          clipBase="q_review"
+          textBn="সব প্রশ্নের উত্তর হয়ে গেছে। ফলাফল দেখতে নিচের বোতাম চাপুন।"
+          textEn="All questions are answered. Press the button below to see your result."
+        />
+      </div>
+
+      {apiError ? (
+        <p className={styles.apiError} role="alert">
+          <Icon name="cross" size={20} />
+          {apiError}
+        </p>
+      ) : null}
+
+      <div className={styles.nextWrap}>
+        <Button
+          size="lg"
+          fullWidth
+          disabled={submitting}
+          icon={<Icon name="heart" size={24} />}
+          onClick={onSubmit}
+        >
+          {submitting
+            ? lang === "bn"
+              ? "অপেক্ষা করুন…"
+              : "Please wait…"
+            : lang === "bn"
+              ? "আমার ঝুঁকি দেখুন"
+              : "See my risk"}
+        </Button>
+      </div>
+    </section>
   );
 }

@@ -1,0 +1,106 @@
+.title {
+  margin-top: var(--sp-5);
+  margin-bottom: var(--sp-2);
+}
+
+.sub {
+  color: var(--c-text-muted);
+  font-size: var(--fs-base);
+  margin-bottom: var(--sp-5);
+}
+
+.hiddenInput {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.dropzone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-3);
+  width: 100%;
+  min-height: 220px;
+  padding: var(--sp-6);
+  background: var(--c-surface);
+  border: 3px dashed var(--c-primary);
+  border-radius: var(--radius-lg);
+  color: var(--c-primary-dark);
+  font-family: inherit;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+.dropzone:hover {
+  background: var(--c-risk-low-bg);
+}
+
+.dropTitle {
+  font-size: var(--fs-lg);
+  font-weight: 700;
+}
+
+.previewCard {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  align-items: center;
+  padding: var(--sp-3);
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-lg);
+}
+
+.preview {
+  width: 100%;
+  max-height: 320px;
+  object-fit: contain;
+  border-radius: var(--radius);
+  background: #000;
+}
+
+.changeBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  min-height: 48px;
+  padding: var(--sp-2) var(--sp-4);
+  background: transparent;
+  border: 2px solid var(--c-border);
+  border-radius: 999px;
+  font-family: inherit;
+  font-size: var(--fs-base);
+  font-weight: 700;
+  color: var(--c-primary-dark);
+  cursor: pointer;
+}
+
+.error {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-4);
+  margin-top: var(--sp-4);
+  background: var(--c-risk-high-bg);
+  border: 1px solid var(--c-risk-high);
+  border-radius: var(--radius);
+  color: var(--c-risk-high);
+  font-weight: 600;
+}
+
+.actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  margin-top: var(--sp-5);
+}
+
+.hint {
+  margin-top: var(--sp-3);
+  text-align: center;
+  color: var(--c-text-muted);
+  font-size: var(--fs-sm);
+}

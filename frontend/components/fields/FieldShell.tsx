@@ -13,6 +13,7 @@ export default function FieldShell({
   helper,
   error,
   htmlFor,
+  badge,
   children,
 }: {
   icon: IconName;
@@ -20,6 +21,8 @@ export default function FieldShell({
   helper?: string;
   error?: string;
   htmlFor?: string;
+  /** Provenance hint, e.g. "from photo — please confirm" for OCR-extracted fields. */
+  badge?: string;
   children: ReactNode;
 }) {
   return (
@@ -30,6 +33,12 @@ export default function FieldShell({
         </span>
         <span className={styles.labelText}>
           {label}
+          {badge ? (
+            <span className={styles.badge}>
+              <Icon name="camera" size={14} />
+              {badge}
+            </span>
+          ) : null}
           {helper ? <span className={styles.helper}>{helper}</span> : null}
         </span>
       </label>
