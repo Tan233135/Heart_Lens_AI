@@ -74,8 +74,22 @@ export default function CheckPage() {
 
   // Consume any OCR payload ONCE on mount (so a later plain manual visit isn't pre-seeded).
   const [ocr] = useState<PredictFromImageResponse | null>(() => loadOcr());
-  const [answers, setAnswers] = useState<Answers>(() => answersFromOcr(ocr));
-  const [currentId, setCurrentId] = useState<string>(STEPS[0].id);
+
+  // Seed answers from OCR AND work out which questions OCR already answered, so we can SKIP
+  // them — the user only fills the GAPS rather than re-confirming what was read (team decision).
+  // Frozen at mount (deps [ocr], which is stable) so the question path doesn't shift as the
+  // user answers the remaining questions. A plain manual visit (ocr === null) yields an empty
+  // skip set, so the full wizard runs exactly as before.
+  const init = useMemo(() => {
+    const seeded = answersFromOcr(ocr);
+    const skip = new Set(STEPS.filter((s) => seeded[s.field] !== undefined).map((s) => s.id));
+    const firstUnanswered = visibleSteps(seeded).find((s) => !skip.has(s.id));
+    return { seeded, skip, firstId: firstUnanswered ? firstUnanswered.id : REVIEW };
+  }, [ocr]);
+
+  const [answers, setAnswers] = useState<Answers>(init.seeded);
+  const [currentId, setCurrentId] = useState<string>(init.firstId);
+  const skipIds = init.skip;
   const [submitting, setSubmitting] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
   const topRef = useRef<HTMLDivElement>(null);
@@ -84,8 +98,11 @@ export default function CheckPage() {
     if (ocr) clearOcr();
   }, [ocr]);
 
-  // The ordered path for the CURRENT answers (+ the final review screen).
-  const path = useMemo(() => [...visibleSteps(answers).map((s) => s.id), REVIEW], [answers]);
+  // The ordered path = the visible questions OCR did NOT already answer (+ the review screen).
+  const path = useMemo(
+    () => [...visibleSteps(answers).filter((s) => !skipIds.has(s.id)).map((s) => s.id), REVIEW],
+    [answers, skipIds],
+  );
   const idx = path.indexOf(currentId);
   const safeIdx = idx === -1 ? 0 : idx;
   const isReview = currentId === REVIEW;
@@ -103,7 +120,7 @@ export default function CheckPage() {
   }, [currentId]);
 
   function goNext(fromId: string, a: Answers) {
-    const order = [...visibleSteps(a).map((s) => s.id), REVIEW];
+    const order = [...visibleSteps(a).filter((s) => !skipIds.has(s.id)).map((s) => s.id), REVIEW];
     const i = order.indexOf(fromId);
     setCurrentId(order[Math.min(i + 1, order.length - 1)]);
     setApiError(null);

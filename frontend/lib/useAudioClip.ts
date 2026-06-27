@@ -26,7 +26,7 @@ export interface AudioClip {
   available: boolean; // false => file missing for the current language; disable the button
 }
 
-export function useAudioClip(baseName: ClipBaseName): AudioClip {
+export function useAudioClip(baseName: ClipBaseName, autoPlay = false): AudioClip {
   const { lang } = useI18n();
   const [playing, setPlaying] = useState(false);
   const [available, setAvailable] = useState(true);
@@ -34,6 +34,9 @@ export function useAudioClip(baseName: ClipBaseName): AudioClip {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   // Always holds the LATEST language, so play() (a stable callback) never closes over a stale one.
   const langRef = useRef(lang);
+  // Tracks the last "baseName|lang" we auto-played, so autoplay fires once per clip+language
+  // (and re-fires if the user switches language), not on every re-render.
+  const autoPlayedRef = useRef<string | null>(null);
 
   useEffect(() => {
     langRef.current = lang;
@@ -90,11 +93,27 @@ export function useAudioClip(baseName: ClipBaseName): AudioClip {
     if (a.src !== absolute) a.src = absolute;
     a.currentTime = 0;
     setPlaying(true);
-    a.play().catch(() => {
+    a.play().catch((err: unknown) => {
       setPlaying(false);
-      setAvailable(false);
+      // A browser-BLOCKED autoplay (NotAllowedError — no user gesture yet) is NOT a broken file:
+      // keep the clip "available" so the button stays tappable. Only a real decode/missing error
+      // disables it (we never substitute TTS or the wrong language — agreed audio scope).
+      const name = err instanceof DOMException ? err.name : "";
+      if (name !== "NotAllowedError") setAvailable(false);
     });
   }, [baseName]);
+
+  // Autoplay (opt-in): speak the clip once it's confirmed available, with no tap — and re-fire in
+  // the new language if the user switches. Browsers may block autoplay until the user has
+  // interacted with the page (e.g. a cold first load); then it simply stays silent until the user
+  // taps, because the button remains. Guarded by autoPlayedRef so it runs once per clip+language.
+  useEffect(() => {
+    if (!autoPlay || !available) return;
+    const key = `${baseName}|${lang}`;
+    if (autoPlayedRef.current === key) return;
+    autoPlayedRef.current = key;
+    play();
+  }, [autoPlay, available, baseName, lang, play]);
 
   // Stop audio if the button unmounts (e.g. navigating away mid-clip).
   useEffect(() => {

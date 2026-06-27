@@ -16,11 +16,14 @@ interface AudioButtonProps {
   /** Optional custom label; defaults to a generic "Listen" in the active language. */
   labelBn?: string;
   labelEn?: string;
+  /** Speak the clip automatically when it mounts (no tap). May be blocked by the browser on a
+   *  cold first load until the user has interacted — the button stays available either way. */
+  autoPlay?: boolean;
 }
 
-export default function AudioButton({ clip, labelBn, labelEn }: AudioButtonProps) {
+export default function AudioButton({ clip, labelBn, labelEn, autoPlay = false }: AudioButtonProps) {
   const { lang } = useI18n();
-  const { play, stop, playing, available } = useAudioClip(clip);
+  const { play, stop, playing, available } = useAudioClip(clip, autoPlay);
 
   if (!available) {
     // File for the current language is missing — fail gracefully (disabled), never substitute.

@@ -20,11 +20,14 @@ export default function HomePage() {
         <h1 className={styles.title}>{t("appName")}</h1>
         <p className={styles.tagline}>{t("tagline")}</p>
 
-        {/* Spoken welcome in the active language (CLAUDE.md §1) — for users who read with difficulty. */}
+        {/* Spoken welcome in the active language (CLAUDE.md §1) — for users who read with difficulty.
+            Tries to autoplay on load; browsers commonly BLOCK audio before any user interaction, so
+            on a cold first load it may stay silent until tapped — the button remains for that. */}
         <AudioButton
           clip="welcome"
           labelBn="স্বাগতম শুনুন"
           labelEn="Play welcome"
+          autoPlay
         />
 
         {/* Primary flow: photo of the report (OCR). It always lands on the confirm/manual

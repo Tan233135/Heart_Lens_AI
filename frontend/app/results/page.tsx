@@ -178,12 +178,15 @@ function Result({
         </div>
       </motion.section>
 
-      {/* 2) Audio narration of the result — pre-recorded clip in the active language (§1). */}
+      {/* 2) Audio narration of the result — pre-recorded clip in the active language (§1).
+            Autoplays on arrival (CLAUDE.md §1 — many users read with difficulty); since the user
+            reached this page by tapping through the flow, the browser allows the autoplay. */}
       <div className={styles.audioWrap}>
         <AudioButton
           clip={clip}
           labelBn="ফলাফল শুনুন"
           labelEn="Listen to result"
+          autoPlay
         />
       </div>
 
