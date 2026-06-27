@@ -18,12 +18,15 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 
 from db import (
+    SessionLocal,
     db_enabled,
     get_recent_assessments,
     get_session,
+    init_db,
     save_assessment,
     search_doctors,
 )
+from seed_doctors import seed_if_empty
 from ocr import extract_from_image, warm_up_ocr
 from prediction import (
     DEFAULT_MODEL,
@@ -96,6 +99,30 @@ app.add_middleware(
 
 
 @app.on_event("startup")
+def _init_and_seed_db_on_startup() -> None:
+    """Create tables if missing and seed the doctor directory if empty (CLAUDE.md §13.6).
+
+    Local-first: with no DATABASE_URL set the app uses a local SQLite file (see db.py), so we
+    create the schema here rather than requiring an Alembic run, and seed ~18 sample doctors on
+    the first boot only (idempotent — no duplicates on restart).
+    """
+    try:
+        init_db()
+        session = SessionLocal()
+        try:
+            inserted = seed_if_empty(session)
+        finally:
+            session.close()
+        if inserted:
+            logger.info("Startup: DB initialized; seeded %d sample doctors.", inserted)
+        else:
+            logger.info("Startup: DB initialized; doctor directory already seeded.")
+    except Exception:
+        # A DB problem must never block the safety-critical prediction path (CLAUDE.md §2).
+        logger.exception("Startup: DB init/seed FAILED — predictions still work; doctor list may be empty.")
+
+
+@app.on_event("startup")
 def _verify_ocr_deps_on_startup() -> None:
     """LOUDLY confirm the heavy OCR deps imported (CLAUDE.md §9 — the likely deploy blocker).
 
@@ -103,7 +130,17 @@ def _verify_ocr_deps_on_startup() -> None:
     resurfaces. We import easyocr + torch up front and log the resolved versions + whether this
     is a CPU build, so a broken install is a loud line in the STARTUP log — never a silent failure
     discovered only on the first upload. Importing does NOT build the Reader (that is warm_up_ocr).
+
+    Skipped when OCR_EAGER_INIT=0 (the default) so the backend starts WITHOUT importing the heavy
+    OCR stack at all — it isn't needed just to serve predictions. torch/easyocr then load lazily on
+    the first image upload (ocr.py), exactly as the OCR endpoint requires.
     """
+    if os.getenv("OCR_EAGER_INIT", "0") != "1":
+        logger.info(
+            "Startup: skipping OCR dep import (OCR_EAGER_INIT=0) — torch/easyocr load lazily on "
+            "first image upload; the prediction path needs neither to start."
+        )
+        return
     try:
         import torch  # noqa: PLC0415
         import easyocr  # noqa: PLC0415

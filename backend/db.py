@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import os
 from datetime import datetime
+from pathlib import Path
 from typing import Optional
 
 from sqlalchemy import (
@@ -53,17 +54,31 @@ def _normalize_database_url(url: str) -> str:
     return url
 
 
-DATABASE_URL: Optional[str] = os.getenv("DATABASE_URL")
+# DATABASE_URL is OPTIONAL. With nothing set we default to a LOCAL SQLite file living next to
+# this module (backend/heartlens.db), so the app is fully self-contained for local use and needs
+# no external database. Point DATABASE_URL at a postgres:// URL to use Postgres instead (the
+# psycopg 3 driver is selected automatically by _normalize_database_url). An empty string is
+# treated the same as unset.
+_DEFAULT_SQLITE_PATH = Path(__file__).parent / "heartlens.db"
+DATABASE_URL: str = os.getenv("DATABASE_URL") or f"sqlite:///{_DEFAULT_SQLITE_PATH}"
 
-# Build the engine once at import (this module is imported once). pool_pre_ping avoids handing
-# out connections Railway has silently dropped. If DATABASE_URL is unset we leave these None
-# and the helpers below degrade to no-ops.
-if DATABASE_URL:
-    engine = create_engine(_normalize_database_url(DATABASE_URL), pool_pre_ping=True, future=True)
-    SessionLocal = sessionmaker(bind=engine, expire_on_commit=False, future=True)
-else:
-    engine = None
-    SessionLocal = None
+# Build the engine once at import (this module is imported once). For SQLite we must allow the
+# connection across threads (FastAPI runs request handlers in a threadpool) and skip pool_pre_ping
+# (a file DB never "drops" a connection the way a remote Postgres can).
+_normalized_url = _normalize_database_url(DATABASE_URL)
+_is_sqlite = _normalized_url.startswith("sqlite")
+engine = create_engine(
+    _normalized_url,
+    pool_pre_ping=not _is_sqlite,
+    connect_args={"check_same_thread": False} if _is_sqlite else {},
+    future=True,
+)
+SessionLocal = sessionmaker(bind=engine, expire_on_commit=False, future=True)
+
+
+def init_db() -> None:
+    """Create any missing tables (idempotent). Used for local SQLite where we don't run Alembic."""
+    Base.metadata.create_all(engine)
 
 
 class Base(DeclarativeBase):

@@ -155,20 +155,31 @@ SAMPLE_DOCTORS = [
 ]
 
 
+def seed_if_empty(session) -> int:
+    """Insert the sample doctors only if the table is empty. Returns the number inserted.
+
+    Idempotent: a second call (e.g. on the next server restart) finds rows already present and
+    inserts nothing, so there are never duplicates. Called automatically at backend startup.
+    """
+    if count_doctors(session) > 0:
+        return 0
+    session.add_all(Doctor(**d) for d in SAMPLE_DOCTORS)
+    session.commit()
+    return len(SAMPLE_DOCTORS)
+
+
 def seed() -> int:
     if not db_enabled():
-        print("DATABASE_URL is not set — cannot seed. See backend/.env.example.", file=sys.stderr)
+        print("No database configured — cannot seed.", file=sys.stderr)
         return 1
 
     session = SessionLocal()
     try:
-        existing = count_doctors(session)
-        if existing > 0:
-            print(f"Doctors table already has {existing} row(s); skipping seed (idempotent).")
-            return 0
-        session.add_all(Doctor(**d) for d in SAMPLE_DOCTORS)
-        session.commit()
-        print(f"Seeded {len(SAMPLE_DOCTORS)} doctors.")
+        inserted = seed_if_empty(session)
+        if inserted == 0:
+            print(f"Doctors table already has {count_doctors(session)} row(s); skipping seed (idempotent).")
+        else:
+            print(f"Seeded {inserted} doctors.")
         return 0
     finally:
         session.close()
